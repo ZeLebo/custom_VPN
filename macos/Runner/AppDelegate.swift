@@ -107,7 +107,8 @@ class AppDelegate: FlutterAppDelegate {
         
         let bundleURL = Bundle.main.bundleURL
         let bundleCorePath = bundleURL.appendingPathComponent("Contents/MacOS/FlClashCore")
-        let appSupportCorePath = appSupportURL.appendingPathComponent("com.follow.clash/cores/FlClashCore")
+        let bundleId = Bundle.main.bundleIdentifier ?? "io.github.zelebo.customvpn"
+        let appSupportCorePath = appSupportURL.appendingPathComponent("\(bundleId)/cores/FlClashCore")
         let appSupportDir = appSupportCorePath.deletingLastPathComponent()
         
         do {
@@ -171,7 +172,7 @@ class AppDelegate: FlutterAppDelegate {
     func showPermissionRequiredAlert() {
         let alert = NSAlert()
         alert.messageText = "Administrator Access Required"
-        alert.informativeText = "FlClashX requires administrator privileges to set up the network core. The application cannot run without these permissions.\n\nPlease restart the application and grant administrator access when prompted."
+        alert.informativeText = "CustomVPN requires administrator privileges to set up the network core. The application cannot run without these permissions.\n\nPlease restart the application and grant administrator access when prompted."
         alert.alertStyle = .critical
         alert.addButton(withTitle: "Quit")
         alert.runModal()

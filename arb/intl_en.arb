@@ -217,6 +217,7 @@
   "infiniteTime": "Long term effective",
   "expirationTime": "Expiration time",
   "connections": "Connections",
+  "zapret": "Zapret",
   "connectionsDesc": "View current connections data",
   "connectionsActive": "Active",
   "connectionsLog": "Log",

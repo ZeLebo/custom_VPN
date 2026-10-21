@@ -217,6 +217,7 @@
   "infiniteTime": "Долгосрочное действие",
   "expirationTime": "Время истечения",
   "connections": "Подключения",
+  "zapret": "Zapret",
   "connectionsDesc": "Просмотр текущих данных о соединениях",
   "connectionsActive": "Активные",
   "connectionsLog": "Журнал",

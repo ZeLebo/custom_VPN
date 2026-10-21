@@ -733,6 +733,7 @@ class GlobalState {
         rules = [...overrideData.runningRule, ...rules];
       }
     }
+    rules = zapret.patchConfig(rawConfig, rules);
     rawConfig["rule"] = rules;
     return rawConfig;
   }

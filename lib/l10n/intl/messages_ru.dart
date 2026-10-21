@@ -208,6 +208,7 @@ class MessageLookup extends MessageLookupByLibrary {
     ),
     "confirm": MessageLookupByLibrary.simpleMessage("Подтвердить"),
     "connections": MessageLookupByLibrary.simpleMessage("Подключения"),
+    "zapret": MessageLookupByLibrary.simpleMessage("Zapret"),
     "connectionsActive": MessageLookupByLibrary.simpleMessage("Активные"),
     "connectionsDesc": MessageLookupByLibrary.simpleMessage(
       "Просмотр текущих данных о соединениях",

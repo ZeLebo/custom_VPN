@@ -8,7 +8,9 @@ import 'package:flclashx/enum/enum.dart';
 import 'package:flclashx/models/models.dart';
 import 'package:flutter/material.dart';
 
-const appName = "FlClashX";
+const appName = "CustomVPN";
+/// macOS bundle id; also names the Application Support folder holding the core.
+const macosBundleId = "io.github.zelebo.customvpn";
 const appHelperService = "FlClashHelperService";
 const coreName = "clashx.meta";
 const browserUa =

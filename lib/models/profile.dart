@@ -245,6 +245,8 @@ extension ProfileExtension on Profile {
   }
 
   Future<Profile> saveFile(Uint8List bytes) async {
+    final converted = xrayToMihomo(utf8.decode(bytes));
+    if (converted != null) return saveFileWithString(converted);
     final message = await clashCore.validateConfig(utf8.decode(bytes));
     if (message.isNotEmpty) {
       throw message;

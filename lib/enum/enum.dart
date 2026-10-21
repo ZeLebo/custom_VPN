@@ -473,6 +473,7 @@ enum PageLabel {
   requests,
   resources,
   connections,
+  zapret,
 }
 
 enum RuleAction {

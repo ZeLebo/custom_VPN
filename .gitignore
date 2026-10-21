@@ -82,3 +82,8 @@ docs/
 
 # Landing page (deployed separately)
 docs/
+
+# zapret build outputs
+/zapret/nfq/utunws
+/zapret/nfq/utunwsa
+/zapret/nfq/utunwsx

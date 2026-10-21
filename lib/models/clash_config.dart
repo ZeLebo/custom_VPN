@@ -15,7 +15,8 @@ const defaultTun = Tun();
 const defaultDns = Dns();
 const defaultGeoXUrl = GeoXUrl();
 
-const defaultMixedPort = 7890;
+// 7890 is left to a stock FlClash/FlClashX running side by side
+const defaultMixedPort = 7895;
 const defaultKeepAliveInterval = 30;
 
 const defaultBypassPrivateRouteAddress = [

@@ -58,6 +58,16 @@ class Navigation {
         modes: [NavigationItemMode.desktop, NavigationItemMode.more],
       ),
       const NavigationItem(
+        icon: Icon(Icons.shield_rounded),
+        label: PageLabel.zapret,
+        view: ZapretView(
+          key: GlobalObjectKey(
+            PageLabel.zapret,
+          ),
+        ),
+        modes: [NavigationItemMode.desktop],
+      ),
+      const NavigationItem(
         icon: Icon(Icons.storage),
         label: PageLabel.resources,
         description: "resourcesDesc",

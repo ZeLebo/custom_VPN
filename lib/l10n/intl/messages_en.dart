@@ -203,6 +203,7 @@ class MessageLookup extends MessageLookupByLibrary {
     ),
     "confirm": MessageLookupByLibrary.simpleMessage("Confirm"),
     "connections": MessageLookupByLibrary.simpleMessage("Connections"),
+    "zapret": MessageLookupByLibrary.simpleMessage("Zapret"),
     "connectionsActive": MessageLookupByLibrary.simpleMessage("Active"),
     "connectionsDesc": MessageLookupByLibrary.simpleMessage(
       "View current connections data",
