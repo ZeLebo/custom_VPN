@@ -175,11 +175,54 @@ bool _applyStream(Map<String, dynamic> proxy, Map stream) {
           stream['grpcSettings'] is Map ? stream['grpcSettings'] as Map : {};
       proxy['network'] = 'grpc';
       proxy['grpc-opts'] = {'grpc-service-name': grpc['serviceName'] ?? ''};
+    case 'xhttp' || 'splithttp':
+      if (proxy['type'] != 'vless') return false;
+      final xhttp = stream['xhttpSettings'] ?? stream['splithttpSettings'];
+      proxy['network'] = 'xhttp';
+      proxy['xhttp-opts'] = _xhttpOpts(xhttp is Map ? xhttp : {});
     default:
       return false;
   }
   return true;
 }
+
+/// xray xhttpSettings (+ its `extra`) -> mihomo xhttp-opts.
+Map<String, dynamic> _xhttpOpts(Map xhttp) {
+  final extra = xhttp['extra'] is Map ? xhttp['extra'] as Map : {};
+  Object? pick(String key) => xhttp[key] ?? extra[key];
+  final xmux = pick('xmux');
+  return {
+    'path': pick('path') ?? '/',
+    if (_nonEmpty(pick('host'))) 'host': pick('host'),
+    if (_nonEmpty(pick('mode'))) 'mode': pick('mode'),
+    if (pick('headers') is Map) 'headers': pick('headers'),
+    if (pick('noGRPCHeader') == true) 'no-grpc-header': true,
+    if (pick('xPaddingBytes') != null)
+      'x-padding-bytes': _range(pick('xPaddingBytes')),
+    if (pick('scMaxEachPostBytes') != null)
+      'sc-max-each-post-bytes': _range(pick('scMaxEachPostBytes')),
+    if (pick('scMinPostsIntervalMs') != null)
+      'sc-min-posts-interval-ms': _range(pick('scMinPostsIntervalMs')),
+    if (xmux is Map)
+      'reuse-settings': {
+        for (final (from, to) in const [
+          ('maxConcurrency', 'max-concurrency'),
+          ('maxConnections', 'max-connections'),
+          ('cMaxReuseTimes', 'c-max-reuse-times'),
+          ('hMaxRequestTimes', 'h-max-request-times'),
+          ('hMaxReusableSecs', 'h-max-reusable-secs'),
+        ])
+          if (xmux[from] != null) to: _range(xmux[from]),
+        if (xmux['hKeepAlivePeriod'] is num)
+          'h-keep-alive-period': xmux['hKeepAlivePeriod'],
+      },
+  };
+}
+
+/// xray ranges come as 100, "100-1000" or {"from": 100, "to": 1000}.
+String _range(Object? value) => value is Map
+    ? '${value['from']}-${value['to'] ?? value['from']}'
+    : value.toString();
 
 Map? _first(Object? list) =>
     list is List && list.isNotEmpty && list.first is Map ? list.first as Map : null;

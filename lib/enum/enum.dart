@@ -416,6 +416,15 @@ enum DashboardWidget {
       crossAxisCellCount: 4,
       child: ZashboardButton(),
     ),
+  ),
+  zapretButton(
+    GridItem(
+      crossAxisCellCount: 4,
+      child: ZapretButton(),
+    ),
+    platforms: [
+      SupportPlatform.MacOS,
+    ],
   );
 
   final GridItem widget;

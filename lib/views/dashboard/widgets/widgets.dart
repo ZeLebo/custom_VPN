@@ -9,4 +9,5 @@ export 'quick_options.dart';
 export 'service_info_widget.dart';
 export 'stats_grid.dart';
 export 'traffic_usage.dart';
+export 'zapret_button.dart';
 export 'zashboard_button.dart';

@@ -89,6 +89,7 @@ const _$DashboardWidgetEnumMap = {
   DashboardWidget.changeServerButton: 'changeServerButton',
   DashboardWidget.serviceInfo: 'serviceInfo',
   DashboardWidget.zashboardButton: 'zashboardButton',
+  DashboardWidget.zapretButton: 'zapretButton',
 };
 
 _$AccessControlImpl _$$AccessControlImplFromJson(Map<String, dynamic> json) =>

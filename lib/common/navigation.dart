@@ -65,7 +65,8 @@ class Navigation {
             PageLabel.zapret,
           ),
         ),
-        modes: [NavigationItemMode.desktop],
+        // mobile = the compact menubar window
+        modes: [NavigationItemMode.desktop, NavigationItemMode.mobile],
       ),
       const NavigationItem(
         icon: Icon(Icons.storage),
