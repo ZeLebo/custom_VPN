@@ -142,6 +142,14 @@ class Zapret {
   bool get isAvailable =>
       Platform.isMacOS && File(join(payloadPath, 'install.sh')).existsSync();
 
+  /// The zapret dashboard widgets get added to an existing dashboard once;
+  /// removing them afterwards sticks.
+  bool get dashboardWidgetsAdded =>
+      _readState('customvpn-dashboard-widgets').isNotEmpty;
+
+  set dashboardWidgetsAdded(bool value) =>
+      value ? _writeState('customvpn-dashboard-widgets', 'added') : null;
+
   bool get routingEnabled => _readState('flclashx-routing') != 'off';
 
   set routingEnabled(bool value) =>
@@ -331,6 +339,18 @@ class Zapret {
       client.close();
       temp.deleteSync(recursive: true);
     }
+  }
+
+  /// Whether each service is reachable directly (through zapret, past the
+  /// VPN): route name -> delay in ms, or null when it doesn't get through.
+  Future<Map<String, int?>> checkServices() async {
+    final results = await Future.wait(zapretRoutes.map(
+      (route) => clashCore.getDelay(route.testUrl, 'DIRECT'),
+    ));
+    return {
+      for (var i = 0; i < zapretRoutes.length; i++)
+        zapretRoutes[i].name: (results[i].value ?? -1) > 0 ? results[i].value : null,
+    };
   }
 
   /// Re-checks DIRECT for every route so traffic switches right away instead

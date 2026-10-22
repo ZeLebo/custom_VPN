@@ -3,7 +3,6 @@ import 'dart:io';
 
 import 'package:flclashx/common/common.dart';
 import 'package:flclashx/enum/enum.dart';
-import 'package:flclashx/state.dart';
 import 'package:flclashx/widgets/widgets.dart';
 import 'package:flutter/material.dart';
 
@@ -18,6 +17,8 @@ class _ZapretViewState extends State<ZapretView> {
   bool _running = false;
   bool _busy = false;
   bool _testing = false;
+  bool _checking = false;
+  Map<String, int?>? _services;
   String _progress = '';
   ZapretTestReport? _report;
   Timer? _timer;
@@ -27,6 +28,7 @@ class _ZapretViewState extends State<ZapretView> {
     super.initState();
     _report = zapret.testReport;
     _refresh();
+    _checkServices();
     _timer = Timer.periodic(const Duration(seconds: 1), (_) => _refresh());
   }
 
@@ -56,7 +58,22 @@ class _ZapretViewState extends State<ZapretView> {
     await _refresh();
     if (!mounted) return;
     setState(() => _busy = false);
-    if (error != null) context.showNotifier(error);
+    if (error != null) {
+      context.showNotifier(error);
+    } else {
+      unawaited(_checkServices());
+    }
+  }
+
+  Future<void> _checkServices() async {
+    if (_checking) return;
+    setState(() => _checking = true);
+    final results = await zapret.checkServices();
+    if (!mounted) return;
+    setState(() {
+      _checking = false;
+      _services = results;
+    });
   }
 
   Future<void> _test() async {
@@ -76,11 +93,6 @@ class _ZapretViewState extends State<ZapretView> {
     if (!mounted) return;
     setState(() => _busy = false);
     context.showNotifier(message);
-  }
-
-  void _setRouting(bool value) {
-    setState(() => zapret.routingEnabled = value);
-    globalState.appController.applyProfileDebounce(silence: true);
   }
 
   String? get _bestId {
@@ -199,26 +211,34 @@ class _ZapretViewState extends State<ZapretView> {
         ],
       );
 
-  Widget _routing() => generateSectionV2(
-        title: 'Маршрутизация',
-        items: [
-          ListItem.switchItem(
-            title: const Text('YouTube и Discord через zapret'),
-            subtitle: const Text(
-              'Напрямую через zapret, если проходит, иначе через VPN',
-            ),
-            delegate: SwitchDelegate(
-              value: zapret.routingEnabled,
-              onChanged: _setRouting,
-            ),
-          ),
+  /// Direct (past the VPN) reachability of each service: what zapret gives.
+  Widget _availability() {
+    final scheme = Theme.of(context).colorScheme;
+    return generateSectionV2(
+      title: 'Доступность через zapret',
+      actions: [
+        TextButton(
+          onPressed: _checking ? null : _checkServices,
+          child: Text(_checking ? 'Проверяю…' : 'Проверить'),
+        ),
+      ],
+      items: [
+        for (final route in zapretRoutes)
           ListItem(
-            title: const Text('Перепроверить сейчас'),
-            subtitle: Text(zapretRoutes.map((r) => r.group).join(', ')),
-            onTap: _busy ? null : () => _run(() async => null),
+            title: Text(route.name),
+            subtitle: Text(Uri.parse(route.testUrl).host),
+            trailing: _services == null
+                ? const Text('—')
+                : _services![route.name] == null
+                    ? Text('недоступен', style: TextStyle(color: scheme.error))
+                    : Text(
+                        '${_services![route.name]} мс',
+                        style: TextStyle(color: scheme.tertiary),
+                      ),
           ),
-        ],
-      );
+      ],
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -235,11 +255,11 @@ class _ZapretViewState extends State<ZapretView> {
             child: _status(),
           ),
           const SizedBox(height: 16),
+          _availability(),
+          const SizedBox(height: 16),
           _strategies(),
           const SizedBox(height: 16),
           _options(),
-          const SizedBox(height: 16),
-          _routing(),
         ],
       ),
     );

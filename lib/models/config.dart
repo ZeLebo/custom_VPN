@@ -45,6 +45,7 @@ const List<DashboardWidget> defaultDashboardWidgets = [
   DashboardWidget.metainfo,
   DashboardWidget.outboundModeV2,
   DashboardWidget.zapretButton,
+  DashboardWidget.zapretRouting,
 ];
 
 List<DashboardWidget> dashboardWidgetsSafeFormJson(

@@ -95,3 +95,58 @@ class _ZapretButtonState extends State<ZapretButton> {
     );
   }
 }
+
+/// Dashboard card: send YouTube/Discord through zapret (with VPN fallback) or
+/// let them follow the profile rules.
+class ZapretRoutingButton extends StatefulWidget {
+  const ZapretRoutingButton({super.key});
+
+  @override
+  State<ZapretRoutingButton> createState() => _ZapretRoutingButtonState();
+}
+
+class _ZapretRoutingButtonState extends State<ZapretRoutingButton> {
+  void _toggle(bool value) {
+    setState(() => zapret.routingEnabled = value);
+    globalState.appController.applyProfileDebounce(silence: true);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!zapret.isAvailable) return const SizedBox.shrink();
+    final enabled = zapret.routingEnabled;
+    return SizedBox(
+      height: getWidgetHeight(1),
+      child: CommonCard(
+        onPressed: () => _toggle(!enabled),
+        info: const Info(
+          label: 'YouTube и Discord',
+          iconData: Icons.alt_route_rounded,
+        ),
+        child: Container(
+          padding: baseInfoEdgeInsets.copyWith(top: 4, bottom: 8, right: 8),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Flexible(
+                child: TooltipText(
+                  text: Text(
+                    enabled ? 'zapret, иначе VPN' : 'по правилам профиля',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context)
+                        .textTheme
+                        .titleSmall
+                        ?.adjustSize(-2)
+                        .toLight,
+                  ),
+                ),
+              ),
+              Switch(value: enabled, onChanged: _toggle),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}

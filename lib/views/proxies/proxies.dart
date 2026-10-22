@@ -11,6 +11,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'common.dart';
+import 'section.dart';
 import 'setting.dart';
 import 'tab.dart';
 
@@ -173,7 +174,9 @@ class _ProxiesViewState extends ConsumerState<ProxiesView> with PageMixin {
         if (next.pageLabel == PageLabel.proxies) {
           _hasProviders = next.hasProviders;
           _isTab = next.type == ProxiesType.tab;
-          initPageState();
+          if (ref.read(proxiesSectionProvider) == ProxiesSection.proxies) {
+            initPageState();
+          }
           return;
         } else {
           WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -182,6 +185,13 @@ class _ProxiesViewState extends ConsumerState<ProxiesView> with PageMixin {
             }
           });
         }
+      },
+    );
+    // Back from Profiles/Rules inside the Proxies tab: take the app bar again.
+    ref.listenManual(
+      proxiesSectionActiveProvider(ProxiesSection.proxies),
+      (prev, next) {
+        if (next && prev != next) initPageState();
       },
     );
     super.initState();

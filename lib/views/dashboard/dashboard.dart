@@ -35,7 +35,26 @@ class _DashboardViewState extends ConsumerState<DashboardView> with PageMixin {
       },
       fireImmediately: true,
     );
+    WidgetsBinding.instance.addPostFrameCallback((_) => _addZapretWidgets());
     return super.initState();
+  }
+
+  /// Dashboards saved before the zapret widgets existed get them once.
+  void _addZapretWidgets() {
+    if (!mounted || !zapret.isAvailable || zapret.dashboardWidgetsAdded) return;
+    zapret.dashboardWidgetsAdded = true;
+    ref.read(appSettingProvider.notifier).updateState(
+          (state) => state.copyWith(
+            dashboardWidgets: [
+              ...state.dashboardWidgets,
+              for (final widget in const [
+                DashboardWidget.zapretButton,
+                DashboardWidget.zapretRouting,
+              ])
+                if (!state.dashboardWidgets.contains(widget)) widget,
+            ],
+          ),
+        );
   }
 
   @override

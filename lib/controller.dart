@@ -24,6 +24,7 @@ import 'common/common.dart';
 import 'models/models.dart';
 import 'plugins/vpn.dart';
 import 'views/profiles/override_profile.dart';
+import 'views/proxies/section.dart';
 
 class AppController {
   AppController(this.context, WidgetRef ref) : _ref = ref;
@@ -1357,7 +1358,8 @@ class AppController {
   }
 
   void toProfiles() {
-    toPage(PageLabel.profiles);
+    _ref.read(proxiesSectionProvider.notifier).state = ProxiesSection.profiles;
+    toPage(PageLabel.proxies);
   }
 
   void initLink() {

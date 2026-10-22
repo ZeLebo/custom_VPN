@@ -425,6 +425,15 @@ enum DashboardWidget {
     platforms: [
       SupportPlatform.MacOS,
     ],
+  ),
+  zapretRouting(
+    GridItem(
+      crossAxisCellCount: 4,
+      child: ZapretRoutingButton(),
+    ),
+    platforms: [
+      SupportPlatform.MacOS,
+    ],
   );
 
   final GridItem widget;

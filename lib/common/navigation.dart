@@ -25,25 +25,13 @@ class Navigation {
           key: GlobalObjectKey(PageLabel.dashboard),
         ),
       ),
-      NavigationItem(
-        icon: const Icon(Icons.travel_explore_rounded),
-        label: PageLabel.proxies,
-        view: const ProxiesView(
-          key: GlobalObjectKey(
-            PageLabel.proxies,
-          ),
-        ),
-        modes: hasProxies
-            ? [NavigationItemMode.mobile, NavigationItemMode.desktop]
-            : [],
-      ),
+      // Proxies, profiles and rules share one tab (PageLabel.profiles is
+      // reached through it, see AppController.toProfiles).
       const NavigationItem(
-        icon: Icon(Icons.account_circle_rounded),
-        label: PageLabel.profiles,
-        view: ProfilesView(
-          key: GlobalObjectKey(
-            PageLabel.profiles,
-          ),
+        icon: Icon(Icons.travel_explore_rounded),
+        label: PageLabel.proxies,
+        view: ProxiesHubView(
+          key: GlobalObjectKey('proxies-hub'),
         ),
       ),
       const NavigationItem(
