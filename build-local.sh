@@ -16,10 +16,15 @@ if [ -n "${PROXY:-}" ]; then
     export http_proxy="$PROXY" https_proxy="$PROXY" HTTP_PROXY="$PROXY" HTTPS_PROXY="$PROXY"
 fi
 
+# OFFLINE=1: build from the local pub and Go module caches, no network
+if [ -n "${OFFLINE:-}" ]; then
+    export GOPROXY=off GOFLAGS=-mod=mod
+fi
+
 printf 'CODE_SIGN_IDENTITY = -\nDEVELOPMENT_TEAM =\nARCHS = arm64\n' > macos/Runner/Configs/Local.xcconfig
 rm -rf build/macos
 
-flutter pub get
+flutter pub get ${OFFLINE:+--offline}
 dart setup.dart macos --arch arm64 --out core
 
 CORE_VERSION=$(awk '/metacubex\/mihomo v/{print $2; exit}' core/go.mod)

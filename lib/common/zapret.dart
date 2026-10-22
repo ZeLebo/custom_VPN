@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -210,7 +211,48 @@ class Zapret {
   /// Returns an error message, or null on success.
   Future<String?> start() async {
     initUserData();
+    await writeVpnServers();
     return _runStaged('install.sh', (payload) => [payload, dataRoot]);
+  }
+
+  /// Proxy servers of the running config (see [patchConfig]).
+  Set<String> _proxyServers = {};
+
+  /// Writes the VPN servers' IPv4 addresses for run.sh, which lets traffic to
+  /// them bypass zapret: with IPSet any/loaded zapret would otherwise desync
+  /// the VPN tunnel itself. Picked up on the next zapret (re)start.
+  Future<void> writeVpnServers() async {
+    final addresses = <String>{};
+    for (final server in _proxyServers) {
+      final ip = InternetAddress.tryParse(server);
+      if (ip != null) {
+        if (ip.type == InternetAddressType.IPv4) addresses.add(server);
+      } else {
+        addresses.addAll(await _resolveIPv4(server));
+      }
+    }
+    _writeState('vpn-servers.txt', addresses.join('\n'));
+  }
+
+  /// DoH lookup: the system resolver may answer with the VPN's fake IPs.
+  Future<List<String>> _resolveIPv4(String host) async {
+    final client = HttpClient()..connectionTimeout = const Duration(seconds: 5);
+    try {
+      final request = await client.getUrl(
+        Uri.https('1.1.1.1', '/dns-query', {'name': host, 'type': 'A'}),
+      );
+      request.headers.set('accept', 'application/dns-json');
+      final response = await request.close();
+      final body = jsonDecode(await response.transform(utf8.decoder).join());
+      return [
+        for (final answer in (body['Answer'] as List? ?? const []))
+          if (answer is Map && answer['type'] == 1) answer['data'].toString(),
+      ];
+    } catch (_) {
+      return [];
+    } finally {
+      client.close();
+    }
   }
 
   Future<String?> stop() => _runStaged('stop.sh', (_) => []);
@@ -230,6 +272,7 @@ class Zapret {
 
   Future<String?> _restartIfRunning() async {
     if (!await isRunning()) return null;
+    await writeVpnServers();
     return _runStaged('restart.sh', (_) => []);
   }
 
@@ -238,6 +281,7 @@ class Zapret {
   Future<String?> testStrategies() async {
     initUserData();
     _deleteState('strategy-test-cancel');
+    await writeVpnServers();
     final uid = await _id('-u');
     final gid = await _id('-g');
     return _runStaged(
@@ -364,7 +408,15 @@ class Zapret {
   /// Adds fallback groups [DIRECT, <VPN target of MATCH>] and puts their rules
   /// first, ahead of profile and override rules.
   List<dynamic> patchConfig(Map<String, dynamic> rawConfig, List<dynamic> rules) {
-    if (!isAvailable || !routingEnabled) return rules;
+    if (!isAvailable) return rules;
+    final proxies = rawConfig['proxies'];
+    _proxyServers = {
+      if (proxies is List)
+        for (final proxy in proxies)
+          if (proxy is Map && proxy['server'] != null) proxy['server'].toString(),
+    };
+    unawaited(writeVpnServers());
+    if (!routingEnabled) return rules;
     final vpnTarget = _matchTarget(rules);
     if (vpnTarget == null) return rules;
     final groups = rawConfig['proxy-groups'] is List

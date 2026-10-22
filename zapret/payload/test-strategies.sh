@@ -34,8 +34,9 @@ if /usr/bin/pgrep -x utunws >/dev/null 2>&1; then ORIGINAL_RUNNING=1; fi
 restore() {
     trap - EXIT INT TERM HUP
     set_progress 'Восстановление настроек'
-    printf '%s\n' "$ORIGINAL_STRATEGY" >"$DATA_ROOT/selected-strategy"
-    printf '%s\n' "$ORIGINAL_IPSET" >"$DATA_ROOT/ipset-mode"
+    printf '%s\n' "${ORIGINAL_STRATEGY:-general-simple-fake}" >"$DATA_ROOT/selected-strategy"
+    # tests run with IPSet "any"; never leave it behind
+    printf '%s\n' "${ORIGINAL_IPSET:-none}" >"$DATA_ROOT/ipset-mode"
     if [ "$ORIGINAL_RUNNING" -eq 1 ]; then
         if [ "$INSTALLED" -eq 1 ]; then
             "$BASE/restart.sh" >/dev/null 2>&1 || true

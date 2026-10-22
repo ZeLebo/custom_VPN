@@ -76,6 +76,13 @@ for NAME in list-general.txt list-general-user.txt list-google.txt list-exclude.
     if [ -L "$SOURCE_LIST" ] || [ ! -f "$SOURCE_LIST" ]; then exit 1; fi
     /usr/bin/install -m 0644 "$SOURCE_LIST" "$RUNTIME_LISTS/$NAME"
 done
+# VPN server addresses written by the VPN client: their traffic must bypass zapret,
+# otherwise IPSet any/loaded desyncs the tunnel itself. Only IPv4 addresses/CIDRs are kept.
+VPN_SERVERS="$RUNTIME_LISTS/vpn-servers.txt"
+: >"$VPN_SERVERS"
+if [ -f "$DATA_ROOT/vpn-servers.txt" ] && [ ! -L "$DATA_ROOT/vpn-servers.txt" ]; then
+    /usr/bin/grep -E '^([0-9]{1,3}\.){3}[0-9]{1,3}(/[0-9]{1,2})?$' "$DATA_ROOT/vpn-servers.txt" >"$VPN_SERVERS" || true
+fi
 /usr/sbin/chown -R root:wheel "$RUNTIME_LISTS"
 /bin/chmod 755 "$RUNTIME_LISTS"
 
@@ -113,6 +120,8 @@ fi
 # Only packets leaving the physical interface: traffic routed into another VPN's tun stays untouched,
 # while that VPN's DIRECT connections (made by its root core) still get processed.
 printf '%s\n' \
+  "table <zapret_skip> persist file \"$VPN_SERVERS\"" \
+  "pass out quick on $PHYSICAL_IFACE inet from any to <zapret_skip> no state" \
   "pass out quick on $PHYSICAL_IFACE route-to (utun50 10.77.0.2) inet proto tcp from any to any port {80,443,2053,2083,2087,2096,8443} no state" \
   "pass out quick on $PHYSICAL_IFACE route-to (utun50 10.77.0.2) inet proto udp from any to any port {443,19294:19344,50000:50100} no state" \
   | /sbin/pfctl -a "$ANCHOR" -f -
