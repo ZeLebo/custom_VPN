@@ -10,7 +10,7 @@
 - **Подписки в формате xray JSON** (например, шаблон Remnawave для xray) переводятся в конфиг mihomo: vless (reality, vision, xhttp), vmess, trojan, shadowsocks.
 - **zapret совместим с VPN**: pf перехватывает только трафик физического интерфейса, поэтому туннель VPN не задевается, а DIRECT-соединения ядра (работает от root) обрабатываются.
 
-Исходники zapret лежат в [`zapret/`](zapret) (`nfq` — движок, `payload` — скрипты службы и стратегии), данные пользователя общие с ZapretMac: `~/Library/Application Support/ZapretMac`.
+Исходники zapret лежат в [`zapret/`](zapret) (`nfq` — движок, `payload` — скрипты службы и стратегии), данные пользователя лежат в `~/Library/Application Support/ZapretMac`, служба — в `/Library/Application Support/ZapretMac` (имена остались от ZapretMac). Отдельное приложение ZapretMac не нужно: службой управляет CustomVPN.
 
 ## Сборка (Apple Silicon)
 
