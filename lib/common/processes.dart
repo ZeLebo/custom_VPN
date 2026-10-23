@@ -107,10 +107,13 @@ bool wildcardMatch(String pattern, String value) {
   return patternIndex == glob.length;
 }
 
-/// Common prefix and non-overlapping suffix, joined by a single `*`.
+/// Common prefix and non-overlapping suffix, joined by a single `*`. Compared
+/// case-insensitively, like the core matches, so the result is lowercase:
+/// [codex, Codex (Service)] → `codex*`.
 String suggestNamePattern(List<String> values) {
-  if (values.every((value) => value == values.first)) return values.first;
-  final names = values.map((value) => value.runes.toList()).toList();
+  final lower = values.map((value) => value.toLowerCase()).toList();
+  if (lower.every((value) => value == lower.first)) return values.first;
+  final names = lower.map((value) => value.runes.toList()).toList();
   final shortest = names.map((name) => name.length).reduce(
         (a, b) => a < b ? a : b,
       );
@@ -130,7 +133,9 @@ String suggestNamePattern(List<String> values) {
       '${String.fromCharCodes(names.first.skip(names.first.length - suffix))}';
 }
 
-/// Deepest common directory; avoid suggesting the root-wide `/*`.
+/// Deepest common directory + `/*` when it is at least two levels deep
+/// (`/opt/homebrew/*`); otherwise, e.g. for `/opt/...` and `/Applications/...`,
+/// any directory + the common executable name pattern (`*/codex*`).
 String suggestPathPattern(List<String> paths) {
   var directory = p.posix.dirname(paths.first);
   for (final path in paths.skip(1)) {
@@ -141,7 +146,10 @@ String suggestPathPattern(List<String> paths) {
       directory = p.posix.dirname(directory);
     }
   }
-  if (directory != '/') return p.posix.join(directory, '*');
-  final pattern = suggestNamePattern(paths);
-  return pattern == '/*' ? '*' : pattern;
+  if (p.posix.split(directory).length > 2) return p.posix.join(directory, '*');
+  return '*/${suggestNamePattern(paths.map(p.posix.basename).toList())}';
 }
+
+/// A pattern with nothing but `*`, `?` and `/` catches every process.
+bool isTooBroadPattern(String pattern) =>
+    pattern.replaceAll(RegExp(r'[*?/]'), '').trim().isEmpty;

@@ -45,6 +45,9 @@ class _AppPickerState extends State<_AppPicker> {
     if (_pattern.text.contains(',')) {
       return 'Шаблон не должен содержать запятую';
     }
+    if (isTooBroadPattern(_pattern.text)) {
+      return 'Ловит все процессы: уточните шаблон или добавьте каждый отдельно';
+    }
     return null;
   }
 

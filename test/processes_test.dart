@@ -51,7 +51,7 @@ void main() {
 
     test('uses the common suffix without overlapping the prefix', () {
       expect(suggestNamePattern(['Codex (Service)', 'Codex (Renderer)']),
-          'Codex (*)');
+          'codex (*)');
       expect(suggestNamePattern(['aba', 'ababa']), 'aba*');
       expect(suggestNamePattern(['abc', 'xbc']), '*bc');
       expect(suggestNamePattern(['😀a', '😀b']), '😀*');
@@ -59,6 +59,11 @@ void main() {
 
     test('uses a star when there is no common prefix or suffix', () {
       expect(suggestNamePattern(['abc', 'xyz']), '*');
+    });
+
+    test('compares case-insensitively like the core', () {
+      expect(suggestNamePattern(['codex', 'Codex (Service)']), 'codex*');
+      expect(suggestNamePattern(['Codex', 'codex']), 'Codex');
     });
   });
 
@@ -71,15 +76,31 @@ void main() {
     test('finds the deepest common directory by path components', () {
       expect(suggestPathPattern(['/u/bin/a', '/u/bin/b']), '/u/bin/*');
       expect(suggestPathPattern(['/u/bin/a', '/u/bin/helpers/b']), '/u/bin/*');
-      expect(suggestPathPattern(['/u/bin/a', '/u/binary/b']), '/u/*');
+      expect(suggestPathPattern(['/u/x/bin/a', '/u/x/binary/b']), '/u/x/*');
       expect(suggestPathPattern(['/u/bin/a', '/u/bin/a']), '/u/bin/*');
     });
 
-    test('falls back to the full-path pattern at the root', () {
-      expect(suggestPathPattern(['/usr/bin/tool', '/opt/bin/tool']),
-          suggestNamePattern(['/usr/bin/tool', '/opt/bin/tool']));
-      expect(suggestPathPattern(['/a']), '/a');
-      expect(suggestPathPattern(['/a', '/b']), '*');
+    test('falls back to any folder + name pattern near the root', () {
+      expect(
+        suggestPathPattern([
+          '/opt/homebrew/Caskroom/codex/0.163.0/bin/codex',
+          '/Applications/AI/ChatGPT.app/Contents/MacOS/Codex (Service)',
+        ]),
+        '*/codex*',
+      );
+      expect(suggestPathPattern(['/usr/bin/tool', '/opt/bin/tool']), '*/tool');
+      expect(suggestPathPattern(['/a']), '*/a');
+      expect(suggestPathPattern(['/a', '/b']), '*/*');
+    });
+  });
+
+  group('isTooBroadPattern', () {
+    test('flags patterns without literal characters', () {
+      expect(isTooBroadPattern('*'), isTrue);
+      expect(isTooBroadPattern('*/*'), isTrue);
+      expect(isTooBroadPattern('?*'), isTrue);
+      expect(isTooBroadPattern('codex*'), isFalse);
+      expect(isTooBroadPattern('*/codex*'), isFalse);
     });
   });
 
