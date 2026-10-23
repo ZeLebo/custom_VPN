@@ -17,7 +17,9 @@ enum AppRoute {
 /// Routing of one app, matched by the core with PROCESS-* rules.
 ///
 /// [app] is an app bundle (`/Applications/Telegram.app`), an executable path
-/// (`/usr/bin/curl`) or a bare process name (`curl`).
+/// (`/usr/bin/curl`) or a bare process name (`curl`). Paths and names may be
+/// wildcards (`codex*`, `/Users/me/.local/share/claude/versions/*`): `*` is
+/// any run of characters including `/`, `?` is one character.
 class AppRule {
   const AppRule({required this.app, required this.route});
 
@@ -34,18 +36,29 @@ class AppRule {
 
   Map<String, dynamic> toJson() => {'app': app, 'route': route.name};
 
-  /// `Telegram` for `/Applications/Telegram.app`.
-  String get name => basenameWithoutExtension(app);
+  /// `Telegram` for `/Applications/Telegram.app`; a path wildcard keeps its
+  /// tail, e.g. `claude/versions/*`.
+  String get name {
+    if (isWildcard && app.startsWith('/')) {
+      final parts = split(app);
+      return joinAll(parts.sublist(parts.length > 3 ? parts.length - 3 : 1));
+    }
+    return basenameWithoutExtension(app);
+  }
 
-  bool get isBundle => app.endsWith('.app');
+  bool get isWildcard => app.contains('*') || app.contains('?');
+
+  bool get isBundle => app.endsWith('.app') && !isWildcard;
 
   /// Rule payload without the target. A bundle also covers its helper
   /// processes (`Google Chrome Helper` lives inside `Google Chrome.app`), so
   /// it is matched by path; mihomo's `*` matches `/` too.
   String get payload {
     if (isBundle) return 'PROCESS-PATH-WILDCARD,$app/*';
-    if (app.startsWith('/')) return 'PROCESS-PATH,$app';
-    return 'PROCESS-NAME,$app';
+    if (app.startsWith('/')) {
+      return isWildcard ? 'PROCESS-PATH-WILDCARD,$app' : 'PROCESS-PATH,$app';
+    }
+    return isWildcard ? 'PROCESS-NAME-WILDCARD,$app' : 'PROCESS-NAME,$app';
   }
 
   AppRule copyWith({AppRoute? route}) =>

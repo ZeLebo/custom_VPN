@@ -66,9 +66,10 @@ class _AppPickerState extends State<_AppPicker> {
   Future<void> _enterProcess() async {
     final value = await globalState.showCommonDialog<String>(
       child: InputDialog(
-        title: 'Имя процесса',
+        title: 'Процесс или шаблон',
         value: '',
-        hintText: 'curl',
+        hintText: 'curl, codex*, ~/.local/share/claude/versions/*',
+        labelText: 'Имя или путь, * — любые символы',
         validator: (value) {
           if (value == null || value.trim().isEmpty) {
             return 'Введите имя процесса';
@@ -80,7 +81,13 @@ class _AppPickerState extends State<_AppPicker> {
         },
       ),
     );
-    if (value != null && mounted) Navigator.of(context).pop(value.trim());
+    if (value == null || !mounted) return;
+    var app = value.trim();
+    final home = Platform.environment['HOME'];
+    if (home != null && app.startsWith('~/')) {
+      app = p.join(home, app.substring(2));
+    }
+    Navigator.of(context).pop(app);
   }
 
   @override
@@ -91,7 +98,7 @@ class _AppPickerState extends State<_AppPicker> {
           TextButton(onPressed: _pickFile, child: const Text('Выбрать…')),
           TextButton(
             onPressed: _enterProcess,
-            child: const Text('Имя процесса…'),
+            child: const Text('Процесс или шаблон…'),
           ),
           TextButton(
             onPressed: () => Navigator.of(context).pop(),

@@ -215,7 +215,7 @@ class _RulesViewState extends ConsumerState<RulesView> with PageMixin {
           title: Text(
             'Команды в терминале (curl, git, ssh) — отдельные процессы: '
             'правило для kitty или Terminal их не ловит. '
-            'Добавляйте их через «Имя процесса…».',
+            'Добавляйте их через «Процесс или шаблон…».',
           ),
         ),
       ],
