@@ -149,9 +149,16 @@ class AppRules {
 
   /// Puts the app rules in front of [rules] (they win over zapret routes and
   /// profile rules). With [onlyListed] everything else goes DIRECT.
+  ///
+  /// Exact rules go first, then wildcards from the longest, so `a-b-c`
+  /// direct wins over `a*` through the VPN whatever the list order.
   List<dynamic> patchConfig(Map<String, dynamic> rawConfig, List<dynamic> rules) {
     if (!isAvailable) return rules;
-    final appRules = this.rules;
+    final appRules = [
+      ...this.rules.where((rule) => !rule.isWildcard),
+      ...this.rules.where((rule) => rule.isWildcard).toList()
+        ..sort((a, b) => b.app.length.compareTo(a.app.length)),
+    ];
     if (appRules.isEmpty && !onlyListed) return rules;
     final vpnTarget = _vpnTarget(rawConfig, rules);
     final patched = [

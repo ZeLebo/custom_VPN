@@ -88,16 +88,20 @@ class _RulesViewState extends ConsumerState<RulesView> with PageMixin {
   }
 
   Future<void> _addApp() async {
-    final app = await showAppPicker(context);
-    if (app == null || !mounted) return;
-    var route = AppRoute.vpn;
-    for (final rule in appRules.rules) {
-      if (rule.app == app) {
-        route = rule.route;
-        break;
+    final apps = await showAppPicker(context);
+    if (apps == null || apps.isEmpty || !mounted) return;
+    _updateAppRules(() {
+      for (final app in apps) {
+        var route = AppRoute.vpn;
+        for (final rule in appRules.rules) {
+          if (rule.app == app) {
+            route = rule.route;
+            break;
+          }
+        }
+        appRules.put(AppRule(app: app, route: route));
       }
-    }
-    _updateAppRules(() => appRules.put(AppRule(app: app, route: route)));
+    });
   }
 
   @override
@@ -215,7 +219,9 @@ class _RulesViewState extends ConsumerState<RulesView> with PageMixin {
           title: Text(
             'Команды в терминале (curl, git, ssh) — отдельные процессы: '
             'правило для kitty или Terminal их не ловит. '
-            'Добавляйте их через «Процесс или шаблон…».',
+            'Выбирайте их во вкладке «Процессы». '
+            'Точные правила важнее шаблонов: '
+            '«a*» через VPN и «a-b-c» напрямую работают вместе.',
           ),
         ),
       ],
