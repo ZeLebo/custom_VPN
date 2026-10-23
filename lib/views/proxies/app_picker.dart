@@ -23,20 +23,30 @@ class _AppPickerState extends State<_AppPicker> {
   Future<List<String>> _loadApps() async {
     final home = Platform.environment['HOME'];
     final paths = <String>{};
+    // Apps may be sorted into folders (/Applications/DEVELOPMENT/kitty.app);
+    // bundles themselves are not entered.
+    Future<void> scan(Directory directory, int depth) async {
+      try {
+        await for (final entry in directory.list(followLinks: false)) {
+          if (entry is! Directory) continue;
+          if (entry.path.endsWith('.app')) {
+            paths.add(entry.path);
+          } else if (depth < 3) {
+            await scan(entry, depth + 1);
+          }
+        }
+      } on FileSystemException {
+        // unreadable folder
+      }
+    }
+
     for (final path in [
       '/Applications',
-      '/Applications/Utilities',
       if (home != null) p.join(home, 'Applications'),
       '/System/Applications',
-      '/System/Applications/Utilities',
     ]) {
       final directory = Directory(path);
-      if (!directory.existsSync()) continue;
-      await for (final entry in directory.list()) {
-        if (entry is Directory && entry.path.endsWith('.app')) {
-          paths.add(entry.path);
-        }
-      }
+      if (directory.existsSync()) await scan(directory, 0);
     }
     return paths.toList()
       ..sort((a, b) => p

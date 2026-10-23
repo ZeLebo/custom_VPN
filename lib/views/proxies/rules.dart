@@ -209,6 +209,15 @@ class _RulesViewState extends ConsumerState<RulesView> with PageMixin {
                 ],
               ),
             ),
+        const ListItem(
+          dense: true,
+          leading: Icon(Icons.info_outline_rounded),
+          title: Text(
+            'Команды в терминале (curl, git, ssh) — отдельные процессы: '
+            'правило для kitty или Terminal их не ловит. '
+            'Добавляйте их через «Имя процесса…».',
+          ),
+        ),
       ],
     ];
     return ListView.builder(
