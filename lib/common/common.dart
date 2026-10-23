@@ -1,4 +1,5 @@
 export 'android.dart';
+export 'app_rules.dart';
 export 'app_localizations.dart';
 export 'color.dart';
 export 'constant.dart';

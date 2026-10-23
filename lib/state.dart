@@ -734,6 +734,7 @@ class GlobalState {
       }
     }
     rules = zapret.patchConfig(rawConfig, rules);
+    rules = appRules.patchConfig(rawConfig, rules);
     rawConfig["rule"] = rules;
     return rawConfig;
   }
