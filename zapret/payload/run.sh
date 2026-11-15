@@ -10,24 +10,14 @@ ENGINE_PID=
 WATCHDOG_PID=
 
 case "$DATA_ROOT" in
-    /Users/*/'Library/Application Support/ZapretMac') ;;
+    /Users/*/'Library/Application Support/ZapretMac'|"$BASE/runtime") ;;
     *) exit 1 ;;
 esac
 
-if [ -s "$KEEPINIT_FILE" ]; then
-    /usr/sbin/sysctl -w net.inet.tcp.keepinit=7000 >/dev/null
-fi
+
 
 clear_intercept() {
     /sbin/pfctl -a "$ANCHOR" -F all >/dev/null 2>&1 || true
-}
-
-release_pf_token() {
-    if [ -s "$TOKEN_FILE" ]; then
-        TOKEN=$(/bin/cat "$TOKEN_FILE" 2>/dev/null || true)
-        if [ -n "$TOKEN" ]; then /sbin/pfctl -X "$TOKEN" >/dev/null 2>&1 || true; fi
-        /bin/rm -f "$TOKEN_FILE"
-    fi
 }
 
 cleanup() {
@@ -37,10 +27,15 @@ cleanup() {
     if [ -n "$ENGINE_PID" ]; then kill "$ENGINE_PID" >/dev/null 2>&1 || true; fi
     if [ -n "$WATCHDOG_PID" ]; then wait "$WATCHDOG_PID" >/dev/null 2>&1 || true; fi
     if [ -n "$ENGINE_PID" ]; then wait "$ENGINE_PID" >/dev/null 2>&1 || true; fi
-    release_pf_token
+    /bin/sh "$BASE/cleanup.sh"
 }
 
 trap cleanup EXIT INT TERM HUP
+if [ ! -s "$KEEPINIT_FILE" ]; then
+    /usr/sbin/sysctl -n net.inet.tcp.keepinit > "$KEEPINIT_FILE"
+    /bin/chmod 600 "$KEEPINIT_FILE"
+fi
+/usr/sbin/sysctl -w net.inet.tcp.keepinit=7000 >/dev/null
 clear_intercept
 /usr/bin/pkill -9 -x utunws >/dev/null 2>&1 || true
 
@@ -93,7 +88,9 @@ case "$IPSET_MODE" in
     *) IPSET="$BASE/ipset-none.txt" ;;
 esac
 
-/usr/bin/sed -e "s|@BASE@|$BASE|g" -e "s|@LISTS@|$RUNTIME_LISTS|g" -e "s|@IPSET@|$IPSET|g" "$BASE/strategies/$STRATEGY.conf.in" > /var/run/zapret-macos.conf
+STRATEGY_FILE="$BASE/strategies/$STRATEGY.conf.in"
+if [ "$DATA_ROOT" = "$BASE/runtime" ]; then STRATEGY_FILE="$DATA_ROOT/strategy.conf.in"; fi
+/usr/bin/sed -e "s|@BASE@|$BASE|g" -e "s|@LISTS@|$RUNTIME_LISTS|g" -e "s|@IPSET@|$IPSET|g" "$STRATEGY_FILE" > /var/run/zapret-macos.conf
 
 export ZAPRET_IFACE="$PHYSICAL_IFACE"
 export ZAPRET_GATEWAY_MAC="$GATEWAY_MAC"
@@ -109,7 +106,7 @@ while ! /sbin/ifconfig utun50 >/dev/null 2>&1; do
     sleep 0.1
 done
 /sbin/ifconfig utun50 10.77.0.1 10.77.0.2 netmask 255.255.255.255 up
-"$BASE/watchdog.sh" $$ "$ENGINE_PID" &
+"$BASE/watchdog.sh" $$ "$ENGINE_PID" "${ZAPRET_CONTROLLER_PID:-$$}" &
 WATCHDOG_PID=$!
 
 if /sbin/pfctl -s info 2>/dev/null | /usr/bin/grep -q '^Status: Disabled'; then

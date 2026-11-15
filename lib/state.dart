@@ -733,8 +733,17 @@ class GlobalState {
         rules = [...overrideData.runningRule, ...rules];
       }
     }
-    rules = zapret.patchConfig(rawConfig, rules);
-    rules = appRules.patchConfig(rawConfig, rules);
+    rules = patchRoutingConfig(
+      rawConfig,
+      rules,
+      apps: appRules,
+      sites: siteRules.rules,
+      zapretAvailable: zapret.isAvailable,
+      zapretEnabled: zapret.routingEnabled,
+    );
+    zapret.syncVpnServers(rawConfig);
+    final siteRulesError = await zapret.syncSiteRules();
+    if (siteRulesError != null) throw StateError(siteRulesError);
     rawConfig["rule"] = rules;
     return rawConfig;
   }

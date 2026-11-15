@@ -3,84 +3,10 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flclashx/clash/core.dart';
+import 'package:flclashx/common/routing.dart';
+import 'package:flclashx/common/site_rules.dart';
+import 'package:flclashx/common/zapret_control.dart';
 import 'package:path/path.dart';
-
-/// Service that should prefer the zapret DPI bypass (DIRECT) and fall back to
-/// the VPN when DIRECT does not get through (zapret stopped, or the ISP blocks
-/// the service by IP so no DPI trick helps).
-class ZapretRoute {
-  const ZapretRoute({
-    required this.name,
-    required this.testUrl,
-    required this.rules,
-  });
-
-  final String name;
-  final String testUrl;
-
-  /// Rule payloads without the target, e.g. `DOMAIN-SUFFIX,youtube.com`.
-  final List<String> rules;
-
-  String get group => 'Zapret $name';
-}
-
-const zapretRoutes = [
-  ZapretRoute(
-    name: 'YouTube',
-    testUrl: 'https://www.youtube.com/generate_204',
-    rules: [
-      'DOMAIN-SUFFIX,youtube.com',
-      'DOMAIN-SUFFIX,youtu.be',
-      'DOMAIN-SUFFIX,youtube-nocookie.com',
-      'DOMAIN-SUFFIX,youtubekids.com',
-      'DOMAIN-SUFFIX,googlevideo.com',
-      'DOMAIN-SUFFIX,ytimg.com',
-      'DOMAIN-SUFFIX,ggpht.com',
-      'DOMAIN-SUFFIX,youtubei.googleapis.com',
-      'DOMAIN-SUFFIX,youtube.googleapis.com',
-      'DOMAIN-SUFFIX,youtubeembeddedplayer.googleapis.com',
-      'DOMAIN-SUFFIX,jnn-pa.googleapis.com',
-      'DOMAIN-SUFFIX,wide-youtube.l.google.com',
-      'DOMAIN-SUFFIX,youtube-ui.l.google.com',
-      'DOMAIN-SUFFIX,ytimg.l.google.com',
-      'DOMAIN-SUFFIX,yt-video-upload.l.google.com',
-      'DOMAIN,yt3.googleusercontent.com',
-    ],
-  ),
-  ZapretRoute(
-    name: 'Discord',
-    testUrl: 'https://discord.com/api/v9/gateway',
-    rules: [
-      'DOMAIN-SUFFIX,dis.gd',
-      'DOMAIN-SUFFIX,discord.app',
-      'DOMAIN-SUFFIX,discord.co',
-      'DOMAIN-SUFFIX,discord.com',
-      'DOMAIN-SUFFIX,discord.design',
-      'DOMAIN-SUFFIX,discord.dev',
-      'DOMAIN-SUFFIX,discord.gift',
-      'DOMAIN-SUFFIX,discord.gifts',
-      'DOMAIN-SUFFIX,discord.gg',
-      'DOMAIN-SUFFIX,discord.media',
-      'DOMAIN-SUFFIX,discord.new',
-      'DOMAIN-SUFFIX,discord.store',
-      'DOMAIN-SUFFIX,discord.status',
-      'DOMAIN-SUFFIX,discord-activities.com',
-      'DOMAIN-SUFFIX,discordactivities.com',
-      'DOMAIN-SUFFIX,discordapp.com',
-      'DOMAIN-SUFFIX,discordapp.net',
-      'DOMAIN-SUFFIX,discordcdn.com',
-      'DOMAIN-SUFFIX,discordmerch.com',
-      'DOMAIN-SUFFIX,discordpartygames.com',
-      'DOMAIN-SUFFIX,discordsays.com',
-      'DOMAIN-SUFFIX,discordsez.com',
-      'DOMAIN-SUFFIX,discordstatus.com',
-      'DOMAIN,discord-attachments-uploads-prd.storage.googleapis.com',
-      // voice
-      'AND,((NETWORK,UDP),(DST-PORT,50000-50100))',
-      'AND,((NETWORK,UDP),(DST-PORT,19294-19344))',
-    ],
-  ),
-];
 
 class ZapretStrategy {
   const ZapretStrategy(this.id, this.title);
@@ -176,8 +102,9 @@ class Zapret {
 
   List<ZapretStrategy> get strategies {
     final overlay = File(join(overlayPath, 'strategies.tsv'));
-    final file =
-        overlay.existsSync() ? overlay : File(join(payloadPath, 'strategies.tsv'));
+    final file = overlay.existsSync()
+        ? overlay
+        : File(join(payloadPath, 'strategies.tsv'));
     if (!file.existsSync()) return [];
     return file
         .readAsLinesSync()
@@ -211,11 +138,10 @@ class Zapret {
   /// Returns an error message, or null on success.
   Future<String?> start() async {
     initUserData();
-    await writeVpnServers();
-    return _runStaged('install.sh', (payload) => [payload, dataRoot]);
+    return _applyControl(enabled: true);
   }
 
-  /// Proxy servers of the running config (see [patchConfig]).
+  /// Proxy servers of the running config (see [syncVpnServers]).
   Set<String> _proxyServers = {};
 
   /// Writes the VPN servers' IPv4 addresses for run.sh, which lets traffic to
@@ -231,7 +157,7 @@ class Zapret {
         addresses.addAll(await _resolveIPv4(server));
       }
     }
-    _writeState('vpn-servers.txt', addresses.join('\n'));
+    _writeState('vpn-servers.txt', (addresses.toList()..sort()).join('\n'));
   }
 
   /// DoH lookup: the system resolver may answer with the VPN's fake IPs.
@@ -255,7 +181,7 @@ class Zapret {
     }
   }
 
-  Future<String?> stop() => _runStaged('stop.sh', (_) => []);
+  Future<String?> stop() => _applyControl(enabled: false);
 
   Future<String?> setStrategy(String id) async {
     _writeState('selected-strategy', id);
@@ -267,19 +193,98 @@ class Zapret {
     return _restartIfRunning();
   }
 
-  /// Lists are copied into the daemon on (re)start, so edits need a restart.
+  /// The installed controller copies and validates lists before restarting.
   Future<String?> reload() => _restartIfRunning();
+
+  Future<String?>? _siteRulesSync;
+
+  /// Every config apply must synchronize the daemon before direct exceptions
+  /// become active. The installed marker also covers app restarts and retries.
+  Future<String?> syncSiteRules() => _siteRulesSync ??=
+      _syncSiteRules().whenComplete(() => _siteRulesSync = null);
+
+  Future<String?> _syncSiteRules() async {
+    if (!isAvailable || !await isRunning()) return null;
+    if (_controlInstalled &&
+        _control.matches(_controlSettings(enabled: true))) {
+      return null;
+    }
+    return _restartIfRunning();
+  }
 
   Future<String?> _restartIfRunning() async {
     if (!await isRunning()) return null;
-    await writeVpnServers();
-    return _runStaged('restart.sh', (_) => []);
+    return _applyControl(enabled: true);
+  }
+
+  late final _control = ZapretControl(
+    dataRoot: dataRoot,
+    statusFile:
+        File('/Library/Application Support/ZapretMac/control-status.json'),
+  );
+
+  bool get _controlInstalled {
+    final revision = File(join(payloadPath, 'CONTROL_VERSION'));
+    if (!revision.existsSync()) {
+      throw StateError('В сборке отсутствует контроллер Zapret');
+    }
+    final installed =
+        File('/Library/Application Support/ZapretMac/CONTROL_VERSION');
+    final installedVersion =
+        File('/Library/Application Support/ZapretMac/VERSION');
+    return installed.existsSync() &&
+        installed.readAsStringSync() == revision.readAsStringSync() &&
+        installedVersion.existsSync() &&
+        installedVersion.readAsStringSync().trim() == version;
+  }
+
+  Map<String, dynamic> _controlSettings({required bool enabled}) {
+    final servers = File(join(dataRoot, 'vpn-servers.txt'));
+    return {
+      'enabled': enabled,
+      'strategy': strategy,
+      'ipset': ipsetMode,
+      ...zapretSiteSettings(siteRules.rules),
+      'vpnServers': servers.existsSync()
+          ? servers.readAsLinesSync().where((line) => line.isNotEmpty).toList()
+          : <String>[],
+    };
+  }
+
+  Future<String?> _installControl() =>
+      _runStaged('install.sh', (payload) => [payload, dataRoot]);
+
+  Future<String?>? _controlInstall;
+
+  Future<String?> _ensureControlInstalled() {
+    if (_controlInstalled) return Future.value();
+    return _controlInstall ??=
+        _installControl().whenComplete(() => _controlInstall = null);
+  }
+
+  Future<String?> _applyControl({required bool enabled}) async {
+    try {
+      initUserData();
+      if (enabled) await writeVpnServers();
+      final error = await _ensureControlInstalled();
+      if (error != null) return error;
+      final previous = _control.status?['settings'];
+      final settings = !enabled && previous is Map<String, dynamic>
+          ? {...previous, 'enabled': false}
+          : _controlSettings(enabled: enabled);
+      await _control.apply(settings);
+      return null;
+    } catch (error) {
+      return error.toString();
+    }
   }
 
   /// Runs every strategy against YouTube/Discord (takes minutes) and writes
   /// the report; the previous strategy and running state are restored after.
   Future<String?> testStrategies() async {
     initUserData();
+    final error = await _applyControl(enabled: await isRunning());
+    if (error != null) return error;
     _deleteState('strategy-test-cancel');
     await writeVpnServers();
     final uid = await _id('-u');
@@ -328,7 +333,8 @@ class Zapret {
   /// Returns a status message.
   Future<String> updateStrategies() async {
     final client = HttpClient()..userAgent = 'FlClashX';
-    final temp = await Directory.systemTemp.createTemp('flclashx-zapret-update-');
+    final temp =
+        await Directory.systemTemp.createTemp('flclashx-zapret-update-');
     try {
       final release = jsonDecode(await _get(client, _releasesUrl)) as Map;
       final tag = release['tag_name'].toString();
@@ -342,7 +348,8 @@ class Zapret {
       final response = await request.close();
       await response.pipe(zip.openWrite());
       final unpacked = join(temp.path, 'unpacked');
-      await _check(Process.run('/usr/bin/ditto', ['-x', '-k', zip.path, unpacked]));
+      await _check(
+          Process.run('/usr/bin/ditto', ['-x', '-k', zip.path, unpacked]));
       final payload = Directory(unpacked)
           .listSync(recursive: true)
           .whereType<Directory>()
@@ -393,63 +400,36 @@ class Zapret {
     ));
     return {
       for (var i = 0; i < zapretRoutes.length; i++)
-        zapretRoutes[i].name: (results[i].value ?? -1) > 0 ? results[i].value : null,
+        zapretRoutes[i].name:
+            (results[i].value ?? -1) > 0 ? results[i].value : null,
     };
   }
 
   /// Re-checks DIRECT for every route so traffic switches right away instead
   /// of waiting for the next health-check interval.
   Future<void> recheckRoutes() async {
-    for (final route in zapretRoutes) {
-      await clashCore.healthCheck(route.group);
+    final groups = {
+      if (routingEnabled)
+        for (final route in zapretRoutes) route.group,
+      for (final site in siteRules.rules)
+        if (site.route == SiteRoute.zapret) zapretGroupForDomain(site.domain),
+    };
+    for (final group in groups) {
+      await clashCore.healthCheck(group);
     }
   }
 
-  /// Adds fallback groups [DIRECT, <VPN target of MATCH>] and puts their rules
-  /// first, ahead of profile and override rules.
-  List<dynamic> patchConfig(Map<String, dynamic> rawConfig, List<dynamic> rules) {
-    if (!isAvailable) return rules;
+  /// Records tunnel endpoints for the daemon's packet-filter exclusions.
+  void syncVpnServers(Map<String, dynamic> rawConfig) {
+    if (!isAvailable) return;
     final proxies = rawConfig['proxies'];
     _proxyServers = {
       if (proxies is List)
         for (final proxy in proxies)
-          if (proxy is Map && proxy['server'] != null) proxy['server'].toString(),
+          if (proxy is Map && proxy['server'] != null)
+            proxy['server'].toString(),
     };
     unawaited(writeVpnServers());
-    if (!routingEnabled) return rules;
-    final vpnTarget = _matchTarget(rules);
-    if (vpnTarget == null) return rules;
-    final groups = rawConfig['proxy-groups'] is List
-        ? List<dynamic>.from(rawConfig['proxy-groups'] as List)
-        : <dynamic>[];
-    for (final route in zapretRoutes) {
-      groups.add({
-        'name': route.group,
-        'type': 'fallback',
-        'proxies': ['DIRECT', vpnTarget],
-        'url': route.testUrl,
-        'interval': 300,
-        'timeout': 3000,
-        'lazy': false,
-      });
-    }
-    rawConfig['proxy-groups'] = groups;
-    return [
-      for (final route in zapretRoutes)
-        for (final rule in route.rules) '$rule,${route.group}',
-      ...rules,
-    ];
-  }
-
-  String? _matchTarget(List<dynamic> rules) {
-    for (final rule in rules.reversed) {
-      final parts = rule.toString().split(',');
-      if (parts.length >= 2 && parts.first.trim() == 'MATCH') {
-        final target = parts[1].trim();
-        return target == 'DIRECT' || target == 'REJECT' ? null : target;
-      }
-    }
-    return null;
   }
 
   /// Runs [script] as root from a temporary copy of the bundled payload with

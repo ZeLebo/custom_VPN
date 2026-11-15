@@ -1,0 +1,29 @@
+{
+  "enabled": true,
+  "strategy": "general-simple-fake",
+  "ipset": "none",
+  "sites": [
+    {
+      "host": "private.sub.example.com",
+      "exact": false,
+      "route": "block"
+    },
+    {
+      "host": "sub.example.com",
+      "exact": false,
+      "route": "zapret"
+    },
+    {
+      "host": "example.com",
+      "exact": false,
+      "route": "direct"
+    }
+  ],
+  "customHosts": [
+    "sub.example.com"
+  ],
+  "udpBypassPorts": [],
+  "vpnServers": [
+    "1.1.1.1"
+  ]
+}

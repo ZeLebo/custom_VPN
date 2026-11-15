@@ -6,16 +6,16 @@
     <string>io.github.flowseal.zapretmac</string>
     <key>ProgramArguments</key>
     <array>
-        <string>/Library/Application Support/ZapretMac/run.sh</string>
+        <string>/Library/Application Support/ZapretMac/bin/zapret-control</string>
+        <string>-data-root</string>
         <string>@DATA_ROOT@</string>
+        <string>-uid</string>
+        <string>@USER_ID@</string>
     </array>
     <key>RunAtLoad</key>
     <true/>
     <key>KeepAlive</key>
-    <dict>
-        <key>SuccessfulExit</key>
-        <false/>
-    </dict>
+    <true/>
     <key>ThrottleInterval</key>
     <integer>2</integer>
     <key>StandardOutPath</key>

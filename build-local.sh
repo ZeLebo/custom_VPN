@@ -29,7 +29,7 @@ dart setup.dart macos --arch arm64 --out core
 
 CORE_VERSION=$(awk '/metacubex\/mihomo v/{print $2; exit}' core/go.mod)
 APP_VERSION=$(awk '/^version:/{split($2, v, "+"); print v[1]}' pubspec.yaml)
-flutter build macos --release \
+flutter build macos --release --no-pub \
     --dart-define=APP_ENV=stable \
     --dart-define=CORE_VERSION="$CORE_VERSION" \
     --dart-define=APP_VERSION="$APP_VERSION"
@@ -43,6 +43,10 @@ rm -rf "$ZAPRET_OUT"
 mkdir -p "$(dirname "$ZAPRET_OUT")"
 ditto zapret/payload "$ZAPRET_OUT"
 cp zapret/nfq/utunws "$ZAPRET_OUT/bin/utunws"
+CONTROL_OUT="$(pwd)/$ZAPRET_OUT/bin/zapret-control"
+(cd zapret/control && CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build -trimpath -ldflags='-s -w' -o "$CONTROL_OUT" .)
+codesign --force --sign - "$CONTROL_OUT"
+shasum -a 256 "$CONTROL_OUT" "$ZAPRET_OUT"/*.sh "$ZAPRET_OUT"/*.plist.in "$ZAPRET_OUT"/strategies/*.conf.in "$ZAPRET_OUT"/bin/utunws "$ZAPRET_OUT"/bin/*.bin | awk '{print $1}' | shasum -a 256 | awk '{print $1}' > "$ZAPRET_OUT/CONTROL_VERSION"
 chmod 755 "$ZAPRET_OUT"/*.sh "$ZAPRET_OUT/bin/utunws"
 codesign --force --sign - "$ZAPRET_OUT/bin/utunws"
 codesign --force --deep --sign - "$APP"

@@ -12,8 +12,7 @@ CANCEL="$DATA_ROOT/strategy-test-cancel"
 TMP=$(/usr/bin/mktemp -d /tmp/zapret-strategy-test.XXXXXX)
 ORIGINAL_STRATEGY=$(/usr/bin/tr -d '[:space:]' <"$DATA_ROOT/selected-strategy" 2>/dev/null || true)
 ORIGINAL_IPSET=$(/usr/bin/tr -d '[:space:]' <"$DATA_ROOT/ipset-mode" 2>/dev/null || true)
-ORIGINAL_RUNNING=0
-INSTALLED=0
+RUN_PID=
 CANCELLED=0
 
 case "$DATA_ROOT" in
@@ -29,7 +28,15 @@ esac
 IFACE=$(/sbin/route -n get default 2>/dev/null | /usr/bin/awk '/interface:/{print $2; exit}')
 [ -n "$IFACE" ] || exit 1
 
-if /usr/bin/pgrep -x utunws >/dev/null 2>&1; then ORIGINAL_RUNNING=1; fi
+
+stop_strategy() {
+    if [ -n "$RUN_PID" ]; then
+        "$SOURCE/stop.sh" >/dev/null 2>&1 || true
+        kill "$RUN_PID" >/dev/null 2>&1 || true
+        wait "$RUN_PID" >/dev/null 2>&1 || true
+        RUN_PID=
+    fi
+}
 
 restore() {
     trap - EXIT INT TERM HUP
@@ -37,22 +44,26 @@ restore() {
     printf '%s\n' "${ORIGINAL_STRATEGY:-general-simple-fake}" >"$DATA_ROOT/selected-strategy"
     # tests run with IPSet "any"; never leave it behind
     printf '%s\n' "${ORIGINAL_IPSET:-none}" >"$DATA_ROOT/ipset-mode"
-    if [ "$ORIGINAL_RUNNING" -eq 1 ]; then
-        if [ "$INSTALLED" -eq 1 ]; then
-            "$BASE/restart.sh" >/dev/null 2>&1 || true
-        else
-            "$SOURCE/install.sh" "$SOURCE" "$DATA_ROOT" >/dev/null 2>&1 || true
-        fi
-    else
-        "$SOURCE/stop.sh" >/dev/null 2>&1 || true
+    stop_strategy
+    RESTORE_ERROR=0
+    if ! "$SOURCE/install.sh" "$SOURCE" "$DATA_ROOT" >"$TMP/restore.log" 2>&1; then
+        /bin/cat "$TMP/restore.log" >&2
+        RESTORE_ERROR=1
     fi
     /usr/sbin/chown "$TEST_UID:$TEST_GID" "$REPORT" 2>/dev/null || true
     /bin/chmod 644 "$REPORT" 2>/dev/null || true
     /bin/rm -f "$PROGRESS" "$CANCEL"
     /bin/rm -rf "$TMP"
+    if [ "$RESTORE_ERROR" -ne 0 ]; then
+        echo 'Failed to restore the Zapret controller after strategy tests' >&2
+        exit 1
+    fi
 }
 
-trap restore EXIT INT TERM HUP
+trap restore EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
+trap 'exit 129' HUP
 
 run_user() {
     /usr/bin/sudo -u "#$TEST_UID" -H "$@"
@@ -184,12 +195,9 @@ start_strategy() {
     OLD_PID=$(/usr/bin/pgrep -x utunws 2>/dev/null | /usr/bin/head -1)
     printf '%s\n' "$STRATEGY" >"$DATA_ROOT/selected-strategy"
     printf 'any\n' >"$DATA_ROOT/ipset-mode"
-    if [ "$INSTALLED" -eq 0 ]; then
-        if ! "$SOURCE/install.sh" "$SOURCE" "$DATA_ROOT" >"$TMP/install.log" 2>&1; then return 1; fi
-        INSTALLED=1
-    else
-        if ! "$BASE/restart.sh" >"$TMP/restart.log" 2>&1; then return 1; fi
-    fi
+    stop_strategy
+    /bin/sh "$BASE/run.sh" "$DATA_ROOT" >"$TMP/engine.log" 2>&1 &
+    RUN_PID=$!
     wait_for_engine "$OLD_PID"
 }
 
@@ -284,18 +292,25 @@ while IFS="$TAB" read -r STRATEGY_ID STRATEGY_NAME; do
         continue
     fi
     INDEX=0
+    PROBE_PIDS=
     while IFS= read -r HOST; do
         INDEX=$((INDEX + 1))
         [ -s "$TMP/available-$INDEX" ] || continue
         IP=$(/usr/bin/awk -F "$TAB" '{print $3}' "$TMP/selected-$INDEX")
         ping_test "$IP" "$RESULT_DIR/$INDEX-ping" &
+        PROBE_PIDS="$PROBE_PIDS $!"
         curl_test http "$HOST" "$IP" "$RESULT_DIR/$INDEX-http" &
+        PROBE_PIDS="$PROBE_PIDS $!"
         curl_test tls12 "$HOST" "$IP" "$RESULT_DIR/$INDEX-tls12" &
-        if [ "$TLS13" -eq 1 ]; then curl_test tls13 "$HOST" "$IP" "$RESULT_DIR/$INDEX-tls13" & fi
+        PROBE_PIDS="$PROBE_PIDS $!"
+        if [ "$TLS13" -eq 1 ]; then
+            curl_test tls13 "$HOST" "$IP" "$RESULT_DIR/$INDEX-tls13" &
+            PROBE_PIDS="$PROBE_PIDS $!"
+        fi
     done <<EOF
 $TARGETS
 EOF
-    wait
+    for PROBE_PID in $PROBE_PIDS; do wait "$PROBE_PID"; done
     if cancel_requested; then CANCELLED=1; break; fi
     SCORE=0
     TLS_SCORE=0

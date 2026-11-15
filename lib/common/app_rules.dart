@@ -70,20 +70,28 @@ class AppRule {
 class AppRules {
   factory AppRules() => _instance ??= AppRules._internal();
 
-  AppRules._internal();
+  AppRules._internal() : _file = null;
+
+  AppRules.fromFile(File file) : _file = file;
 
   static AppRules? _instance;
+
+  final File? _file;
 
   /// mihomo has no reliable process lookup on Android/iOS, and app paths are
   /// macOS-shaped here.
   bool get isAvailable => Platform.isMacOS;
 
-  String get _path => join(
-        Platform.environment['HOME'] ?? '',
-        'Library',
-        'Application Support',
-        'CustomVPN',
-        'app-rules.json',
+  File get _storage =>
+      _file ??
+      File(
+        join(
+          Platform.environment['HOME'] ?? '',
+          'Library',
+          'Application Support',
+          'CustomVPN',
+          'app-rules.json',
+        ),
       );
 
   List<AppRule>? _rules;
@@ -101,6 +109,7 @@ class AppRules {
   }
 
   set onlyListed(bool value) {
+    if (_onlyListed == null) _load();
     _onlyListed = value;
     _save();
   }
@@ -127,7 +136,7 @@ class AppRules {
     _rules = [];
     _onlyListed = false;
     try {
-      final file = File(_path);
+      final file = _storage;
       if (!file.existsSync()) return;
       final json = jsonDecode(file.readAsStringSync()) as Map<String, dynamic>;
       _onlyListed = json['onlyListed'] == true;
@@ -139,7 +148,7 @@ class AppRules {
   }
 
   void _save() {
-    final file = File(_path);
+    final file = _storage;
     file.parent.createSync(recursive: true);
     file.writeAsStringSync(jsonEncode({
       'onlyListed': onlyListed,
@@ -147,8 +156,8 @@ class AppRules {
     }));
   }
 
-  /// Puts the app rules in front of [rules] (they win over zapret routes and
-  /// profile rules). With [onlyListed] everything else goes DIRECT.
+  /// Adds app rules above the profile. Site and service routes are added
+  /// afterwards, above these rules, including when [onlyListed] is enabled.
   ///
   /// Exact rules go first, then wildcards from the longest, so `a-b-c`
   /// direct wins over `a*` through the VPN whatever the list order.
@@ -160,7 +169,7 @@ class AppRules {
         ..sort((a, b) => b.app.length.compareTo(a.app.length)),
     ];
     if (appRules.isEmpty && !onlyListed) return rules;
-    final vpnTarget = _vpnTarget(rawConfig, rules);
+    final vpnTarget = vpnTargetFor(rawConfig, rules);
     final patched = [
       for (final rule in appRules)
         // commas would split the rule; no VPN group means nowhere to send it
@@ -180,27 +189,27 @@ class AppRules {
       if (onlyListed) 'MATCH,DIRECT' else ...rules,
     ];
   }
+}
 
-  /// The group the profile sends unmatched traffic to, else its first group.
-  String? _vpnTarget(Map<String, dynamic> rawConfig, List<dynamic> rules) {
-    for (final rule in rules.reversed) {
-      final parts = rule.toString().split(',');
-      if (parts.length >= 2 && parts.first.trim() == 'MATCH') {
-        final target = parts[1].trim();
-        if (target != 'DIRECT' && !target.startsWith('REJECT')) return target;
-        break;
-      }
+/// The profile's default VPN group, or its first selector when MATCH is direct.
+String? vpnTargetFor(Map<String, dynamic> rawConfig, List<dynamic> rules) {
+  for (final rule in rules.reversed) {
+    final parts = rule.toString().split(',');
+    if (parts.length >= 2 && parts.first.trim() == 'MATCH') {
+      final target = parts[1].trim();
+      if (target != 'DIRECT' && !target.startsWith('REJECT')) return target;
+      break;
     }
-    final groups = rawConfig['proxy-groups'];
-    if (groups is List) {
-      for (final group in groups) {
-        if (group is Map && group['name'] != null && group['type'] == 'select') {
-          return group['name'].toString();
-        }
-      }
-    }
-    return null;
   }
+  final groups = rawConfig['proxy-groups'];
+  if (groups is List) {
+    for (final group in groups) {
+      if (group is Map && group['name'] != null && group['type'] == 'select') {
+        return group['name'].toString();
+      }
+    }
+  }
+  return null;
 }
 
 final appRules = AppRules();

@@ -4,6 +4,7 @@ import 'package:flclashx/common/common.dart';
 import 'package:flclashx/state.dart';
 import 'package:flclashx/views/proxies/app_picker.dart';
 import 'package:flclashx/views/proxies/section.dart';
+import 'package:flclashx/views/proxies/site_rule_dialog.dart';
 import 'package:flclashx/widgets/widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -42,8 +43,7 @@ class _Rule {
   }
 }
 
-/// Rules the core is running with, in order: zapret routes, override rules,
-/// then the profile's own rules.
+/// Site exceptions, service routes, apps, then the profile's own rules.
 class RulesView extends ConsumerStatefulWidget {
   const RulesView({super.key});
 
@@ -54,21 +54,21 @@ class RulesView extends ConsumerStatefulWidget {
 class _RulesViewState extends ConsumerState<RulesView> with PageMixin {
   List<_Rule> _rules = [];
   String _query = '';
+  bool _updatingSites = false;
 
   @override
   void initState() {
     super.initState();
     _load();
-    ref.listenManual(
-      proxiesSectionActiveProvider(ProxiesSection.rules),
-      (prev, next) {
-        if (next && prev != next) {
-          _load();
-          initPageState();
-        }
-      },
-      fireImmediately: true,
-    );
+    ref.listenManual(proxiesSectionActiveProvider(ProxiesSection.rules), (
+      prev,
+      next,
+    ) {
+      if (next && prev != next) {
+        _load();
+        initPageState();
+      }
+    }, fireImmediately: true);
   }
 
   void _load() {
@@ -82,9 +82,11 @@ class _RulesViewState extends ConsumerState<RulesView> with PageMixin {
   void _updateAppRules(VoidCallback change) {
     setState(change);
     globalState.appController.applyProfileDebounce(silence: true);
-    unawaited(Future.delayed(const Duration(seconds: 1), () {
-      if (mounted) _load();
-    }));
+    unawaited(
+      Future.delayed(const Duration(seconds: 1), () {
+        if (mounted) _load();
+      }),
+    );
   }
 
   Future<void> _addApp() async {
@@ -102,6 +104,35 @@ class _RulesViewState extends ConsumerState<RulesView> with PageMixin {
         appRules.put(AppRule(app: app, route: route));
       }
     });
+  }
+
+  Future<void> _updateSiteRules(VoidCallback change) async {
+    setState(() => _updatingSites = true);
+    var saved = false;
+    try {
+      change();
+      saved = true;
+      await globalState.appController.applyProfile(silence: true);
+      if (mounted) _load();
+    } catch (error) {
+      if (mounted) {
+        unawaited(context.showNotifier(
+          saved
+              ? 'Правило сохранено. Ошибка применения: $error'
+              : 'Не удалось сохранить правило: $error',
+        ));
+      }
+    } finally {
+      if (mounted) setState(() => _updatingSites = false);
+    }
+  }
+
+  Future<void> _addSite() async {
+    final rule = await globalState.showCommonDialog<SiteRule>(
+      child: const SiteRuleDialog(),
+    );
+    if (rule == null || !mounted) return;
+    await _updateSiteRules(() => siteRules.put(rule));
   }
 
   @override
@@ -137,6 +168,89 @@ class _RulesViewState extends ConsumerState<RulesView> with PageMixin {
     final appItems = <Widget>[
       if (showApps) ...[
         ListHeader(
+          title: 'Сайты',
+          actions: [
+            IconButton(
+              tooltip: 'Применить правила сайтов',
+              onPressed: _updatingSites ? null : () => _updateSiteRules(() {}),
+              icon: const Icon(Icons.sync_rounded),
+            ),
+            IconButton(
+              tooltip: 'Добавить сайт',
+              onPressed: _updatingSites ? null : _addSite,
+              icon: const Icon(Icons.add_rounded),
+            ),
+          ],
+        ),
+        if (_updatingSites) const LinearProgressIndicator(),
+        if (siteRules.rules.isEmpty)
+          const ListItem(
+            dense: true,
+            title: Text('Добавьте ссылку или домен для исключения'),
+          ),
+        for (final rule in siteRules.rules)
+          if (rule.domain.contains(query))
+            ListItem(
+              dense: true,
+              leading: const Icon(Icons.language_rounded),
+              title: Tooltip(
+                message: rule.domain,
+                child: Text(rule.domain,
+                    maxLines: 1, overflow: TextOverflow.ellipsis),
+              ),
+              subtitle: const Text('Включая поддомены'),
+              trailing: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  PopupMenuButton<SiteRoute>(
+                    enabled: !_updatingSites,
+                    initialValue: rule.route,
+                    onSelected: (route) => _updateSiteRules(
+                      () => siteRules.put(rule.copyWith(route: route)),
+                    ),
+                    itemBuilder: (_) => [
+                      for (final route in SiteRoute.values)
+                        PopupMenuItem(value: route, child: Text(route.label)),
+                    ],
+                    child: Padding(
+                      padding: const EdgeInsets.all(8),
+                      child: Text(
+                        rule.route.label,
+                        style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                              color: _targetColor(
+                                  context,
+                                  switch (rule.route) {
+                                    SiteRoute.vpn => '',
+                                    SiteRoute.direct => 'DIRECT',
+                                    SiteRoute.block => 'REJECT',
+                                    SiteRoute.zapret => 'Zapret ',
+                                  }),
+                            ),
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: 'Удалить',
+                    onPressed: _updatingSites
+                        ? null
+                        : () => _updateSiteRules(
+                              () => siteRules.remove(rule.domain),
+                            ),
+                    icon: const Icon(Icons.delete_outline_rounded),
+                  ),
+                ],
+              ),
+            ),
+        const ListItem(
+          dense: true,
+          leading: Icon(Icons.info_outline_rounded),
+          title: Text(
+            'Приоритет: сайты → YouTube/Discord → приложения → профиль. '
+            'Более конкретный поддомен важнее общего домена. '
+            '«Напрямую» для сайта исключает обработку Zapret.',
+          ),
+        ),
+        ListHeader(
           title: 'Приложения',
           actions: [
             IconButton(
@@ -148,7 +262,9 @@ class _RulesViewState extends ConsumerState<RulesView> with PageMixin {
         ),
         ListItem.switchItem(
           title: const Text('Только эти приложения через VPN'),
-          subtitle: const Text('Остальной трафик пойдёт напрямую'),
+          subtitle: const Text(
+            'Остальной трафик напрямую, кроме правил сайтов и YouTube/Discord',
+          ),
           delegate: SwitchDelegate(
             value: appRules.onlyListed,
             onChanged: (value) =>
