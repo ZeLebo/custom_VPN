@@ -5,7 +5,7 @@ LDFLAGS += -flto=auto -Wl,-dead_strip
 LIBS = -lz
 SRC_FILES = *.c crypto/*.c
 
-.PHONY: mac clean
+.PHONY: mac clean test
 
 mac: $(SRC_FILES)
 	$(CC) $(CFLAGS) -isysroot "$(SDKROOT)" -o utunwsa $(SRC_FILES) -target arm64-apple-macos14.0 $(LIBS) $(LDFLAGS)
@@ -16,3 +16,6 @@ mac: $(SRC_FILES)
 
 clean:
 	rm -f utunws utunwsa utunwsx
+
+test:
+	python3 tests/test_tls.py -v

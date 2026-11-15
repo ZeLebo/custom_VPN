@@ -27,7 +27,8 @@
 #define Q_RCVBUF	(1024*1024)	// in bytes
 
 #define BADSEQ_INCREMENT_DEFAULT 	-10000
-#define BADSEQ_ACK_INCREMENT_DEFAULT 	-66000
+// Old ACKs may be ignored while in-window fake data is accepted. ACK unsent data instead.
+#define BADSEQ_ACK_INCREMENT_DEFAULT 	0x40000000
 
 #define TS_INCREMENT_DEFAULT 		-600000
 
