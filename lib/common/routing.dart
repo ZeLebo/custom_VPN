@@ -1,6 +1,8 @@
 import 'app_rules.dart';
 import 'site_rules.dart';
 
+enum ServicePath { zapret, vpn }
+
 /// Service that should prefer the zapret DPI bypass (DIRECT) and fall back to
 /// the VPN when DIRECT does not get through (zapret stopped, or the ISP blocks
 /// the service by IP so no DPI trick helps).
@@ -91,6 +93,30 @@ ZapretRoute? _serviceFor(String domain) {
 String zapretGroupForDomain(String domain) =>
     _serviceFor(domain)?.group ?? 'Zapret $domain';
 
+/// Generated fallback groups must stay automatic when restoring profile choices.
+Map<String, String> routingSelections(
+  Map<String, dynamic> rawConfig,
+  Map<String, String> saved, {
+  required List<SiteRule> sites,
+}) {
+  final generated = {
+    for (final service in zapretRoutes) service.group,
+    for (final site in sites)
+      if (site.route == SiteRoute.zapret) zapretGroupForDomain(site.domain),
+  };
+  final automatic = {
+    for (final group in rawConfig['proxy-groups'] as List? ?? [])
+      if (group is Map &&
+          group['type'] == 'fallback' &&
+          generated.contains(group['name']))
+        group['name'],
+  };
+  return {
+    for (final entry in saved.entries)
+      if (!automatic.contains(entry.key)) entry.key: entry.value,
+  };
+}
+
 // Expand service presets first; explicit rules for their individual hosts win.
 List<({String payload, SiteRule rule})> _siteEntries(List<SiteRule> sites) {
   final entries = <String, SiteRule>{};
@@ -131,6 +157,8 @@ List<dynamic> patchRoutingConfig(
   required List<SiteRule> sites,
   required bool zapretAvailable,
   required bool zapretEnabled,
+  required bool automatic,
+  required Map<String, ServicePath> manualRoutes,
 }) {
   final vpnTarget = vpnTargetFor(rawConfig, profileRules);
   final groups = List<dynamic>.from(rawConfig['proxy-groups'] as List? ?? []);
@@ -152,12 +180,19 @@ List<dynamic> patchRoutingConfig(
   }
 
   final serviceRules = <String>[];
-  if (zapretAvailable && zapretEnabled && vpnTarget != null) {
+  if ((zapretAvailable || manualRoutes.isNotEmpty) && vpnTarget != null) {
     for (final service in zapretRoutes) {
-      addFallback(service.group, service.testUrl);
-      serviceRules.addAll(
-        service.rules.map((rule) => '$rule,${service.group}'),
-      );
+      final String target;
+      if (automatic && zapretAvailable && zapretEnabled) {
+        addFallback(service.group, service.testUrl);
+        target = service.group;
+      } else {
+        target =
+            zapretAvailable && zapretEnabled && manualRoutes[service.name] == ServicePath.zapret
+            ? 'DIRECT'
+            : vpnTarget;
+      }
+      serviceRules.addAll(service.rules.map((rule) => '$rule,$target'));
     }
   }
   final siteRules = <String>[];

@@ -21,6 +21,9 @@
 /* End PBXAggregateTarget section */
 
 /* Begin PBXBuildFile section */
+		AB2026111600000000000003 /* NativeMenuView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA2026111600000000000003 /* NativeMenuView.swift */; };
+		AB2026111600000000000002 /* NativeMenuHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA2026111600000000000002 /* NativeMenuHost.swift */; };
+		AB2026111600000000000001 /* NativeMenuState.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA2026111600000000000001 /* NativeMenuState.swift */; };
 		2414C4352E8D575D00EF1247 /* StatusBarController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2414C4342E8D575900EF1247 /* StatusBarController.swift */; };
 		331C80D8294CF71000263BE5 /* RunnerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 331C80D7294CF71000263BE5 /* RunnerTests.swift */; };
 		335BBD1B22A9A15E00E9071D /* GeneratedPluginRegistrant.swift in Sources */ = {isa = PBXBuildFile; fileRef = 335BBD1A22A9A15E00E9071D /* GeneratedPluginRegistrant.swift */; };
@@ -95,6 +98,9 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		AA2026111600000000000003 /* NativeMenuView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeMenuView.swift; sourceTree = "<group>"; };
+		AA2026111600000000000002 /* NativeMenuHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeMenuHost.swift; sourceTree = "<group>"; };
+		AA2026111600000000000001 /* NativeMenuState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeMenuState.swift; sourceTree = "<group>"; };
 		2414C4342E8D575900EF1247 /* StatusBarController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatusBarController.swift; sourceTree = "<group>"; };
 		331C80D5294CF71000263BE5 /* RunnerTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = RunnerTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		331C80D7294CF71000263BE5 /* RunnerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunnerTests.swift; sourceTree = "<group>"; };
@@ -214,6 +220,9 @@
 			children = (
 				2414C4342E8D575900EF1247 /* StatusBarController.swift */,
 				33CC10F02044A3C60003C045 /* AppDelegate.swift */,
+				AA2026111600000000000003 /* NativeMenuView.swift */,
+				AA2026111600000000000002 /* NativeMenuHost.swift */,
+				AA2026111600000000000001 /* NativeMenuState.swift */,
 				33CC11122044BFA00003C045 /* MainFlutterWindow.swift */,
 				33E51913231747F40026EE4D /* DebugProfile.entitlements */,
 				33E51914231749380026EE4D /* Release.entitlements */,
@@ -501,6 +510,9 @@
 				33CC11132044BFA00003C045 /* MainFlutterWindow.swift in Sources */,
 				2414C4352E8D575D00EF1247 /* StatusBarController.swift in Sources */,
 				33CC10F12044A3C60003C045 /* AppDelegate.swift in Sources */,
+				AB2026111600000000000003 /* NativeMenuView.swift in Sources */,
+				AB2026111600000000000002 /* NativeMenuHost.swift in Sources */,
+				AB2026111600000000000001 /* NativeMenuState.swift in Sources */,
 				335BBD1B22A9A15E00E9071D /* GeneratedPluginRegistrant.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

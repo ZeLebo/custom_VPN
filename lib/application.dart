@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flclashx/clash/clash.dart';
 import 'package:flclashx/common/common.dart';
+import 'package:flclashx/common/native_menu.dart';
 import 'package:flclashx/l10n/l10n.dart';
 import 'package:flclashx/manager/hotkey_manager.dart';
 import 'package:flclashx/manager/manager.dart';
@@ -29,6 +30,7 @@ class Application extends ConsumerStatefulWidget {
 
 class ApplicationState extends ConsumerState<Application> {
   Timer? _autoUpdateProfilesTaskTimer;
+  final _nativeMenuObserver = NativeMenuNavigationObserver();
 
   final _pageTransitionsTheme = const PageTransitionsTheme(
     builders: <TargetPlatform, PageTransitionsBuilder>{
@@ -147,6 +149,7 @@ class ApplicationState extends ConsumerState<Application> {
               return MaterialApp(
                 debugShowCheckedModeBanner: false,
                 navigatorKey: globalState.navigatorKey,
+                navigatorObservers: [if (Platform.isMacOS) _nativeMenuObserver],
                 checkerboardRasterCacheImages: false,
                 checkerboardOffscreenLayers: false,
                 showPerformanceOverlay: false,
@@ -162,18 +165,6 @@ class ApplicationState extends ConsumerState<Application> {
                       _buildApp(child!),
                     ),
                   );
-
-                  if (Platform.isMacOS) {
-                    return FittedBox(
-                      fit: BoxFit.contain,
-                      alignment: Alignment.topCenter,
-                      child: SizedBox(
-                        width: 500,
-                        height: 800,
-                        child: app,
-                      ),
-                    );
-                  }
 
                   return app;
                 },

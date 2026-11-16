@@ -82,8 +82,14 @@ class SiteRules {
     return List.unmodifiable(_rules!);
   }
 
-  void put(SiteRule rule) {
-    final next = [...rules];
+  void put(SiteRule rule, {String? previousDomain}) {
+    final next = [
+      for (final item in rules)
+        if (previousDomain == null ||
+            previousDomain == rule.domain ||
+            item.domain != previousDomain)
+          item,
+    ];
     final index = next.indexWhere((item) => item.domain == rule.domain);
     if (index < 0) {
       next.add(rule);

@@ -1,5 +1,8 @@
+import 'dart:io';
+
 import 'package:flclashx/enum/enum.dart';
 import 'package:flclashx/models/models.dart';
+import 'package:flclashx/views/proxies/rules.dart';
 import 'package:flclashx/views/views.dart';
 import 'package:flutter/material.dart';
 
@@ -56,6 +59,13 @@ class Navigation {
         // mobile = the compact menubar window
         modes: [NavigationItemMode.desktop, NavigationItemMode.mobile],
       ),
+      if (Platform.isMacOS)
+        const NavigationItem(
+          icon: Icon(Icons.alt_route_rounded),
+          label: PageLabel.routing,
+          view: RulesView(),
+          modes: [NavigationItemMode.desktop, NavigationItemMode.mobile],
+        ),
       const NavigationItem(
         icon: Icon(Icons.storage),
         label: PageLabel.resources,

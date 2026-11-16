@@ -120,7 +120,7 @@ class _ZapretRoutingButtonState extends State<ZapretRoutingButton> {
       child: CommonCard(
         onPressed: () => _toggle(!enabled),
         info: const Info(
-          label: 'YouTube и Discord',
+          label: 'Автовыбор YouTube и Discord',
           iconData: Icons.alt_route_rounded,
         ),
         child: Container(
@@ -131,7 +131,7 @@ class _ZapretRoutingButtonState extends State<ZapretRoutingButton> {
               Flexible(
                 child: TooltipText(
                   text: Text(
-                    enabled ? 'zapret, иначе VPN' : 'по правилам профиля',
+                    enabled ? 'zapret, иначе VPN' : 'ручные маршруты',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: Theme.of(context)

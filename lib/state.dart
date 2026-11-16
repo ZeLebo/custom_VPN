@@ -397,7 +397,11 @@ class GlobalState {
     lastRuntimeConfig = clashConfig;
     final params = SetupParams(
       config: clashConfig,
-      selectedMap: config.currentProfile?.selectedMap ?? {},
+      selectedMap: routingSelections(
+        clashConfig,
+        config.currentProfile?.selectedMap ?? {},
+        sites: siteRules.rules,
+      ),
       testUrl: config.appSetting.testUrl,
     );
     return params;
@@ -733,13 +737,17 @@ class GlobalState {
         rules = [...overrideData.runningRule, ...rules];
       }
     }
+    final zapretRunning = zapret.isAvailable && await zapret.isRunning();
+    if (zapret.isAvailable && !zapretRunning) zapret.useVpnRoutes();
     rules = patchRoutingConfig(
       rawConfig,
       rules,
       apps: appRules,
       sites: siteRules.rules,
       zapretAvailable: zapret.isAvailable,
-      zapretEnabled: zapret.routingEnabled,
+      zapretEnabled: zapretRunning,
+      automatic: zapret.routingEnabled,
+      manualRoutes: Platform.isMacOS ? zapret.manualRoutes : const {},
     );
     zapret.syncVpnServers(rawConfig);
     final siteRulesError = await zapret.syncSiteRules();

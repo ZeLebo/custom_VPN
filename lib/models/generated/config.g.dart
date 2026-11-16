@@ -15,6 +15,9 @@ _$AppSettingPropsImpl _$$AppSettingPropsImplFromJson(
           : dashboardWidgetsSafeFormJson(json['dashboardWidgets'] as List?),
       onlyStatisticsProxy: json['onlyStatisticsProxy'] as bool? ?? false,
       autoLaunch: json['autoLaunch'] as bool? ?? false,
+      menubarStartPage:
+          $enumDecodeNullable(_$PageLabelEnumMap, json['menubarStartPage']) ??
+              PageLabel.dashboard,
       silentLaunch: json['silentLaunch'] as bool? ?? false,
       autoRun: json['autoRun'] as bool? ?? false,
       openLogs: json['openLogs'] as bool? ?? false,
@@ -48,6 +51,7 @@ Map<String, dynamic> _$$AppSettingPropsImplToJson(
           .toList(),
       'onlyStatisticsProxy': instance.onlyStatisticsProxy,
       'autoLaunch': instance.autoLaunch,
+      'menubarStartPage': _$PageLabelEnumMap[instance.menubarStartPage]!,
       'silentLaunch': instance.silentLaunch,
       'autoRun': instance.autoRun,
       'openLogs': instance.openLogs,
@@ -67,6 +71,19 @@ Map<String, dynamic> _$$AppSettingPropsImplToJson(
       'recoveryStrategy': _$RecoveryStrategyEnumMap[instance.recoveryStrategy]!,
       'newDashboard': instance.newDashboard,
     };
+
+const _$PageLabelEnumMap = {
+  PageLabel.dashboard: 'dashboard',
+  PageLabel.proxies: 'proxies',
+  PageLabel.profiles: 'profiles',
+  PageLabel.tools: 'tools',
+  PageLabel.logs: 'logs',
+  PageLabel.requests: 'requests',
+  PageLabel.resources: 'resources',
+  PageLabel.connections: 'connections',
+  PageLabel.zapret: 'zapret',
+  PageLabel.routing: 'routing',
+};
 
 const _$RecoveryStrategyEnumMap = {
   RecoveryStrategy.compatible: 'compatible',

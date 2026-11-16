@@ -30,6 +30,7 @@ class CommonScaffold extends ConsumerStatefulWidget {
     this.appBarEditState,
     this.floatingActionButton,
     this.disableBackground = false,
+    this.hideAppBar = false,
   });
 
   CommonScaffold.open({
@@ -66,6 +67,7 @@ class CommonScaffold extends ConsumerStatefulWidget {
   final AppBarEditState? appBarEditState;
   final FloatingActionButton? floatingActionButton;
   final bool disableBackground;
+  final bool hideAppBar;
 
   @override
   ConsumerState<CommonScaffold> createState() => CommonScaffoldState();
@@ -350,7 +352,8 @@ class CommonScaffoldState extends ConsumerState<CommonScaffold> {
     return appBar;
   }
 
-  PreferredSizeWidget _buildAppBar() {
+  PreferredSizeWidget? _buildAppBar() {
+    if (widget.hideAppBar) return null;
     final backgroundUrl = widget.disableBackground ? null : ref.watch(backgroundUrlProvider);
     final isTransparent = backgroundUrl != null;
     
@@ -462,7 +465,7 @@ class CommonScaffoldState extends ConsumerState<CommonScaffold> {
 
   @override
   Widget build(BuildContext context) {
-    assert(widget.appBar != null || widget.title != null);
+    assert(widget.hideAppBar || widget.appBar != null || widget.title != null);
     final backgroundUrl = widget.disableBackground ? null : ref.watch(backgroundUrlProvider);
     
     final body = SafeArea(

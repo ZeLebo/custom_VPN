@@ -1,6 +1,7 @@
 // ignore_for_file: deprecated_member_use
 
 import 'dart:math';
+import 'dart:io';
 import 'dart:ui' as ui;
 
 import 'package:flclashx/common/common.dart';
@@ -40,16 +41,16 @@ class ThemeView extends StatelessWidget {
   const ThemeView({super.key});
 
   @override
-  Widget build(BuildContext context) => const SingleChildScrollView(
+  Widget build(BuildContext context) => SingleChildScrollView(
       child: Column(
         spacing: 24,
         children: [
-          _ThemeModeItem(),
-          _PrimaryColorItem(),
-          _PrueBlackItem(),
-          _NewDashboardItem(),
-          _TextScaleFactorItem(),
-          SizedBox(
+          if (!Platform.isMacOS) const _ThemeModeItem(),
+          const _PrimaryColorItem(),
+          if (!Platform.isMacOS) const _PrueBlackItem(),
+          if (!Platform.isMacOS) const _NewDashboardItem(),
+          const _TextScaleFactorItem(),
+          const SizedBox(
             height: 64,
           ),
         ],

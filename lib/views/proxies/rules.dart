@@ -9,50 +9,16 @@ import 'package:flclashx/widgets/widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-/// One rule of the running config, e.g. `DOMAIN-SUFFIX,youtube.com,Zapret YouTube`.
-class _Rule {
-  factory _Rule.parse(String raw) {
-    var rest = raw.trim();
-    // trailing options like ",no-resolve" / ",src" are not part of the target
-    for (final option in const [',no-resolve', ',src']) {
-      if (rest.endsWith(option)) {
-        rest = rest.substring(0, rest.length - option.length);
-      }
-    }
-    final first = rest.indexOf(',');
-    if (first < 0) return _Rule._(rest, '', '');
-    final last = rest.lastIndexOf(',');
-    return _Rule._(
-      rest.substring(0, first),
-      first == last ? '' : rest.substring(first + 1, last),
-      rest.substring(last + 1),
-    );
-  }
-
-  const _Rule._(this.type, this.payload, this.target);
-
-  final String type;
-  final String payload;
-  final String target;
-
-  bool matches(String query) {
-    final q = query.toLowerCase();
-    return type.toLowerCase().contains(q) ||
-        payload.toLowerCase().contains(q) ||
-        target.toLowerCase().contains(q);
-  }
-}
-
 /// Site exceptions, service routes, apps, then the profile's own rules.
 class RulesView extends ConsumerStatefulWidget {
   const RulesView({super.key});
 
   @override
-  ConsumerState<RulesView> createState() => _RulesViewState();
+  ConsumerState<RulesView> createState() => RuntimeRulesViewState();
 }
 
-class _RulesViewState extends ConsumerState<RulesView> with PageMixin {
-  List<_Rule> _rules = [];
+class RuntimeRulesViewState extends ConsumerState<RulesView> with PageMixin {
+  List<RuntimeRule> _rules = [];
   String _query = '';
   bool _updatingSites = false;
 
@@ -75,7 +41,7 @@ class _RulesViewState extends ConsumerState<RulesView> with PageMixin {
     final raw = globalState.lastRuntimeConfig?['rule'];
     setState(() {
       _rules =
-          raw is List ? raw.map((rule) => _Rule.parse('$rule')).toList() : [];
+          raw is List ? raw.map((rule) => RuntimeRule.parse('$rule')).toList() : [];
     });
   }
 

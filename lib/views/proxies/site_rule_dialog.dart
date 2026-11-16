@@ -3,7 +3,8 @@ import 'package:flclashx/widgets/dialog.dart';
 import 'package:flutter/material.dart';
 
 class SiteRuleDialog extends StatefulWidget {
-  const SiteRuleDialog({super.key});
+  const SiteRuleDialog({super.key, this.initialRule});
+  final SiteRule? initialRule;
 
   @override
   State<SiteRuleDialog> createState() => _SiteRuleDialogState();
@@ -14,6 +15,17 @@ class _SiteRuleDialogState extends State<SiteRuleDialog> {
   SiteRoute _route = SiteRoute.direct;
   String? _domain;
   String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    final rule = widget.initialRule;
+    if (rule != null) {
+      _input.text = rule.domain;
+      _domain = rule.domain;
+      _route = rule.route;
+    }
+  }
 
   @override
   void dispose() {
@@ -40,7 +52,7 @@ class _SiteRuleDialogState extends State<SiteRuleDialog> {
 
   @override
   Widget build(BuildContext context) => CommonDialog(
-        title: 'Добавить сайт',
+        title: widget.initialRule == null ? 'Добавить сайт' : 'Изменить маршрут',
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
@@ -76,6 +88,7 @@ class _SiteRuleDialogState extends State<SiteRuleDialog> {
             ),
             const SizedBox(height: 16),
             DropdownButtonFormField<SiteRoute>(
+              isExpanded: true,
               initialValue: _route,
               decoration: const InputDecoration(labelText: 'Маршрут'),
               items: [

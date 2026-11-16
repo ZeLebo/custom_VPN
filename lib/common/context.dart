@@ -1,3 +1,4 @@
+import 'package:flclashx/common/native_menu.dart';
 import 'package:flclashx/manager/message_manager.dart';
 import 'package:flclashx/widgets/scaffold.dart';
 import 'package:flutter/material.dart';
@@ -5,7 +6,12 @@ import 'package:flutter/material.dart';
 extension BuildContextExtension on BuildContext {
   CommonScaffoldState? get commonScaffoldState => findAncestorStateOfType<CommonScaffoldState>();
 
-  Future<void>? showNotifier(String text) => findAncestorStateOfType<MessageManagerState>()?.message(text);
+  Future<void>? showNotifier(String text) {
+    if (nativeMenu.attached && !nativeMenu.legacyVisible) {
+      return nativeMenu.publish('notice', text);
+    }
+    return findAncestorStateOfType<MessageManagerState>()?.message(text);
+  }
 
   void showSnackBar(
     String message, {

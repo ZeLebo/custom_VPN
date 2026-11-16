@@ -30,6 +30,9 @@ void main() {
   List<dynamic> patch({
     List<SiteRule> sites = const [],
     bool enabled = true,
+    bool available = true,
+    bool automatic = true,
+    Map<String, ServicePath> manualRoutes = const {},
     List<dynamic> profile = const [
       'DOMAIN-SUFFIX,profile.test,DIRECT',
       'MATCH,VPN',
@@ -41,8 +44,10 @@ void main() {
         profile,
         apps: apps,
         sites: sites,
-        zapretAvailable: true,
+        zapretAvailable: available,
         zapretEnabled: enabled,
+        automatic: automatic,
+        manualRoutes: manualRoutes,
       );
 
   group('URL normalization', () {
@@ -120,6 +125,41 @@ void main() {
   });
 
   group('routing precedence', () {
+    test('automatic routing groups cannot restore old manual pins', () {
+      final raw = config();
+      final sites = [SiteRule(domain: 'custom.test', route: SiteRoute.zapret)];
+      (raw['proxy-groups'] as List).add({
+        'name': 'Profile fallback',
+        'type': 'fallback',
+        'proxies': ['node'],
+      });
+      patch(raw: raw, sites: sites);
+      final saved = {
+        'VPN': 'node',
+        'Zapret YouTube': 'VPN',
+        'Zapret Discord': 'DIRECT',
+        'Zapret custom.test': 'VPN',
+        'Profile fallback': 'node',
+      };
+      expect(routingSelections(raw, saved, sites: sites), {
+        'VPN': 'node',
+        'Profile fallback': 'node',
+      });
+      expect(saved['Zapret YouTube'], 'VPN');
+    });
+
+    test('manual profile selections survive without generated fallback groups',
+        () {
+      final raw = config();
+      (raw['proxy-groups'] as List).add({
+        'name': 'Zapret YouTube',
+        'type': 'select',
+        'proxies': ['DIRECT', 'VPN'],
+      });
+      final saved = {'Zapret YouTube': 'VPN', 'VPN': 'node'};
+      expect(routingSelections(raw, saved, sites: const []), saved);
+    });
+
     test('sites and service routes beat the browser VPN rule', () {
       apps.put(
         const AppRule(app: '/Applications/Browser.app', route: AppRoute.vpn),
@@ -261,10 +301,84 @@ void main() {
         ..put(const AppRule(app: 'browser*', route: AppRoute.vpn))
         ..put(const AppRule(app: 'browser-helper', route: AppRoute.direct));
       final result = patch(enabled: false);
-      expect(result.take(2), [
+      final processes = result.where((rule) => '$rule'.startsWith('PROCESS-'));
+      expect(processes, [
         'PROCESS-NAME,browser-helper,DIRECT',
         'PROCESS-NAME-WILDCARD,browser*,VPN',
       ]);
+    });
+  });
+
+  group('manual service routing', () {
+    test('VPN routes work without a bundled Zapret; other platforms keep profile routing', () {
+      final mac = patch(available: false, automatic: false,
+        manualRoutes: {'YouTube': ServicePath.zapret, 'Discord': ServicePath.vpn});
+      expect(mac, contains('DOMAIN-SUFFIX,youtube.com,VPN'));
+      expect(mac, contains('DOMAIN-SUFFIX,discord.com,VPN'));
+      final otherPlatform = patch(available: false, automatic: false);
+      expect(otherPlatform, ['DOMAIN-SUFFIX,profile.test,DIRECT', 'MATCH,VPN']);
+    });
+    test('manual routes work without enabling automatic fallback', () {
+      final raw = config();
+      final result = patch(
+        raw: raw,
+        automatic: false,
+        manualRoutes: {
+          'YouTube': ServicePath.zapret,
+          'Discord': ServicePath.vpn,
+        },
+      );
+      expect(result, contains('DOMAIN-SUFFIX,youtube.com,DIRECT'));
+      expect(result, contains('DOMAIN-SUFFIX,discord.com,VPN'));
+      expect((raw['proxy-groups'] as List), hasLength(1));
+    });
+
+    test('a stopped Zapret cannot receive traffic in either mode', () {
+      for (final automatic in [true, false]) {
+        final raw = config();
+        final result = patch(
+          raw: raw,
+          automatic: automatic,
+          enabled: false,
+          manualRoutes: {
+            'YouTube': ServicePath.zapret,
+            'Discord': ServicePath.zapret,
+          },
+        );
+        expect(result, contains('DOMAIN-SUFFIX,youtube.com,VPN'));
+        expect(result, contains('DOMAIN-SUFFIX,discord.com,VPN'));
+        expect((raw['proxy-groups'] as List), hasLength(1));
+      }
+    });
+
+    test('only-listed and explicit site exceptions survive manual routing', () {
+      apps
+        ..onlyListed = true
+        ..put(const AppRule(app: 'browser', route: AppRoute.vpn));
+      final result = patch(
+        automatic: false,
+        manualRoutes: {'YouTube': ServicePath.zapret},
+        sites: [SiteRule(domain: 'youtube.com', route: SiteRoute.vpn)],
+      );
+      final explicit = result.indexOf('DOMAIN-SUFFIX,youtube.com,VPN');
+      final generated = result.indexOf('DOMAIN-SUFFIX,youtube.com,DIRECT');
+      expect(explicit, greaterThanOrEqualTo(0));
+      expect(explicit, lessThan(generated));
+      expect(result, contains('DOMAIN-SUFFIX,youtube.com,DIRECT'));
+      expect(result, contains('PROCESS-NAME,browser,VPN'));
+      expect(result.last, 'MATCH,DIRECT');
+    });
+
+    test('renaming a site replaces both entries in one saved ruleset', () {
+      final store = SiteRules(File('${temp.path}/rename.json'));
+      store.put(SiteRule(domain: 'old.example.com', route: SiteRoute.direct));
+      store.put(
+        SiteRule(domain: 'new.example.com', route: SiteRoute.vpn),
+        previousDomain: 'old.example.com',
+      );
+      final restored = SiteRules(store.file).rules;
+      expect(restored.single.domain, 'new.example.com');
+      expect(restored.single.route, SiteRoute.vpn);
     });
   });
 

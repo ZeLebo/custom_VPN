@@ -77,10 +77,33 @@ class Zapret {
   set dashboardWidgetsAdded(bool value) =>
       value ? _writeState('customvpn-dashboard-widgets', 'added') : null;
 
-  bool get routingEnabled => _readState('flclashx-routing') != 'off';
+  /// Automatic DIRECT-to-VPN fallback; manual service routes are independent.
+  bool get routingEnabled => _readState('flclashx-routing') == 'on';
 
   set routingEnabled(bool value) =>
       _writeState('flclashx-routing', value ? 'on' : 'off');
+
+  Map<String, ServicePath> get manualRoutes => {
+    for (final service in zapretRoutes)
+      service.name: switch (_readState('route-${service.name.toLowerCase()}')) {
+        '' => ServicePath.zapret,
+        final value => ServicePath.values.byName(value),
+      },
+  };
+
+  void setManualRoute(String service, ServicePath path) {
+    if (!zapretRoutes.any((route) => route.name == service)) {
+      throw ArgumentError.value(service, 'service');
+    }
+    _writeState('route-${service.toLowerCase()}', path.name);
+  }
+
+  void useVpnRoutes() {
+    for (final entry in manualRoutes.entries) {
+      if (entry.value != ServicePath.vpn)
+        setManualRoute(entry.key, ServicePath.vpn);
+    }
+  }
 
   String get strategy {
     final value = _readState('selected-strategy');
@@ -181,7 +204,11 @@ class Zapret {
     }
   }
 
-  Future<String?> stop() => _applyControl(enabled: false);
+  Future<String?> stop() async {
+    final error = await _applyControl(enabled: false);
+    if (error == null) useVpnRoutes();
+    return error;
+  }
 
   Future<String?> setStrategy(String id) async {
     _writeState('selected-strategy', id);
@@ -403,6 +430,33 @@ class Zapret {
         zapretRoutes[i].name:
             (results[i].value ?? -1) > 0 ? results[i].value : null,
     };
+  }
+
+  /// Tests both transports against each service's own URL, without selecting it.
+  Future<Map<String, Map<ServicePath, int?>>> checkPaths(
+    String? vpnTarget,
+  ) async {
+    final result = <String, Map<ServicePath, int?>>{};
+    await Future.wait(
+      zapretRoutes.map((service) async {
+        final paths = <ServicePath, int?>{};
+        await Future.wait(
+          ServicePath.values.map((path) async {
+            if (path == ServicePath.vpn && vpnTarget == null) {
+              paths[path] = null;
+              return;
+            }
+            final delay = await clashCore.getDelay(
+              service.testUrl,
+              path == ServicePath.zapret ? 'DIRECT' : vpnTarget!,
+            );
+            paths[path] = (delay.value ?? -1) > 0 ? delay.value : null;
+          }),
+        );
+        result[service.name] = paths;
+      }),
+    );
+    return result;
   }
 
   /// Re-checks DIRECT for every route so traffic switches right away instead

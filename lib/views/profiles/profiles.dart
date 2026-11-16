@@ -17,7 +17,8 @@ import 'package:intl/intl.dart';
 import 'add_profile.dart';
 
 class ProfilesView extends StatefulWidget {
-  const ProfilesView({super.key});
+  const ProfilesView({super.key, this.standalone = false});
+  final bool standalone;
 
   @override
   State<ProfilesView> createState() => _ProfilesViewState();
@@ -134,7 +135,7 @@ class _ProfilesViewState extends State<ProfilesView> with PageMixin {
         ref.listenManual(
           proxiesSectionActiveProvider(ProxiesSection.profiles),
           (prev, next) {
-            if (prev != next && next == true) {
+            if (widget.standalone || (prev != next && next == true)) {
               initPageState();
             }
           },

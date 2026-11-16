@@ -8,7 +8,9 @@ import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
 
 Future<List<String>?> showAppPicker(BuildContext context) =>
-    globalState.showCommonDialog<List<String>>(child: const _AppPicker());
+    globalState.showCommonDialog<List<String>>(
+      child: Theme(data: Theme.of(context), child: const _AppPicker()),
+    );
 
 class _AppPicker extends StatefulWidget {
   const _AppPicker();

@@ -6,6 +6,7 @@ import 'package:flclashx/models/models.dart';
 import 'package:flclashx/providers/providers.dart';
 import 'package:flclashx/state.dart';
 import 'package:flclashx/views/dashboard/widgets/hero_nav_bar.dart';
+import 'package:flclashx/views/menubar.dart';
 import 'package:flclashx/widgets/widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -17,7 +18,7 @@ class HomePage extends StatelessWidget {
   const HomePage({super.key});
 
   @override
-  Widget build(BuildContext context) => HomeBackScope(
+  Widget build(BuildContext context) => Platform.isMacOS ? const HomeBackScope(child: MenubarView()) : HomeBackScope(
         child: Consumer(
           builder: (_, ref, child) {
             final state = ref.watch(homeStateProvider);

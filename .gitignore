@@ -12,6 +12,7 @@
 .build/
 .buildlog/
 .history
+.claude/worktrees/
 .svn/
 .swiftpm/
 migrate_working_dir/
@@ -87,3 +88,9 @@ docs/
 /zapret/nfq/utunws
 /zapret/nfq/utunwsa
 /zapret/nfq/utunwsx
+
+# Local design studies and screenshots; production UI lives in macos/Runner.
+/design/
+
+# Local agent skills used while developing the interface.
+/.agents/

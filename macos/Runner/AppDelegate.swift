@@ -8,6 +8,7 @@ class AppDelegate: FlutterAppDelegate {
     var statusBarController: StatusBarController?
     var zashboardChannel: FlutterMethodChannel?
     var zashboardWindowController: ZashboardWindowController?
+    var nativeMenuHost: NativeMenuHost?
 
     var flutterUIPopover = NSPopover.init()
     
@@ -28,7 +29,8 @@ class AppDelegate: FlutterAppDelegate {
         }
         
         
-        let popoverContainer = PopoverContainerViewController(flutterViewController: mainController)
+        let popoverContainer = NativeMenuHost(flutter: mainController)
+        nativeMenuHost = popoverContainer
         
         flutterUIPopover.contentSize = NSSize(width: 375, height: 600)
         

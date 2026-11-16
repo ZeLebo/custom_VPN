@@ -34,6 +34,7 @@ export 'proxy.dart';
 export 'render.dart';
 export 'request.dart';
 export 'routing.dart';
+export 'runtime_rule.dart';
 export 'scroll.dart';
 export 'site_rules.dart';
 export 'statusbar.dart';
