@@ -47,7 +47,7 @@ struct NativeMenuView: View {
                     Image(systemName: "info.circle")
                     Text(message).font(.system(size: 11)).textSelection(.enabled)
                     Spacer(minLength: 0)
-                    Button { model.message = nil } label: { Image(systemName: "xmark").frame(width: 24, height: 24) }.buttonStyle(.plain).help("Закрыть сообщение").accessibilityLabel("Закрыть сообщение")
+                    Button { model.message = nil } label: { Image(systemName: "xmark").frame(width: 24, height: 24).contentShape(Rectangle()) }.buttonStyle(.plain).help("Закрыть сообщение").accessibilityLabel("Закрыть сообщение")
                 }.padding(10).background(Color(nsColor: .controlBackgroundColor)).accessibilityAddTraits(.updatesFrequently)
             }
         }.frame(width: width, height: 600)
@@ -64,6 +64,7 @@ struct NativeMenuView: View {
                         Image(systemName: page.2).font(.system(size: 17))
                         Text(page.1).font(.system(size: width <= 320 ? 9 : 10, weight: s.page == page.0 ? .semibold : .regular)).lineLimit(1)
                     }.frame(maxWidth: .infinity).frame(height: 44)
+                        .contentShape(Rectangle())
                         .foregroundStyle(s.page == page.0 ? accent : .secondary)
                         .background(s.page == page.0 ? accent.opacity(0.12) : .clear, in: RoundedRectangle(cornerRadius: 12))
                 }.buttonStyle(.plain).help(page.1).accessibilityLabel(page.1)
@@ -94,7 +95,7 @@ struct NativeMenuView: View {
     }
     private func back(_ title: String) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            Button { detail = "" } label: { Label("Назад", systemImage: "chevron.left").font(.system(size: 12)) }.buttonStyle(.plain).keyboardShortcut(.escape, modifiers: [])
+            Button { detail = "" } label: { Label("Назад", systemImage: "chevron.left").font(.system(size: 12)).contentShape(Rectangle()) }.buttonStyle(.plain).keyboardShortcut(.escape, modifiers: [])
             Text(title).font(.system(size: 14, weight: .semibold))
         }
     }
@@ -193,6 +194,7 @@ struct NativeMenuView: View {
                                 Text(path.name).font(.system(size: 10)); Spacer(minLength: 0)
                                 Text(path.result).font(.system(size: 9)).monospacedDigit().foregroundStyle(.secondary)
                             }.padding(.horizontal, 5).frame(maxWidth: .infinity).frame(height: 31)
+                                .contentShape(Rectangle())
                                 .background(path.selected ? accent.opacity(0.12) : Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 7))
                                 .overlay { RoundedRectangle(cornerRadius: 7).strokeBorder(path.selected ? accent : Color(nsColor: .separatorColor), lineWidth: path.selected ? 1.5 : 0.7) }
                                 .opacity(path.available ? 1 : 0.4)
@@ -228,6 +230,7 @@ struct NativeMenuView: View {
                                     .font(.system(size: 11)).monospacedDigit().foregroundStyle(node.delay.map { $0 < 0 } == true ? MenuPalette.adaptive(0x955216, 0xefba7b) : MenuPalette.adaptive(0x26743b, 0x91d6a2))
                                 if node.selected { Image(systemName: "checkmark").font(.system(size: 10)).foregroundStyle(accent) }
                             }.padding(9).frame(maxWidth: .infinity, alignment: .leading)
+                                .contentShape(Rectangle())
                                 .background(node.selected ? accent.opacity(0.12) : .clear, in: RoundedRectangle(cornerRadius: 9))
                                 .overlay { RoundedRectangle(cornerRadius: 9).strokeBorder(node.selected ? accent : .clear, lineWidth: 1.5) }
                         }.buttonStyle(.plain).disabled(!g.selectable || model.busy.contains("server")).help(node.name).accessibilityAddTraits(node.selected ? .isSelected : [])
@@ -314,9 +317,13 @@ struct NativeMenuView: View {
                 let rules = site ? s.sites : s.apps
                 ForEach(Array(rules.enumerated()), id: \.element.id) { index, rule in
                     HStack(spacing: 5) {
-                        Button(rule.name) { edit(rule, site: site) }.buttonStyle(.plain).font(.system(size: 11)).lineLimit(2).frame(maxWidth: .infinity, alignment: .leading).help(rule.id)
-                        small(rule.target).font(.system(size: 10))
-                        Button { model.send(site ? "deleteSite" : "deleteApp", value: rule.id) } label: { Image(systemName: "trash").frame(width: 24, height: 24) }.buttonStyle(.plain).foregroundStyle(.secondary).help("Удалить \(rule.name)").accessibilityLabel("Удалить \(rule.name)")
+                        Button { edit(rule, site: site) } label: {
+                            HStack(spacing: 5) {
+                                Text(rule.name).font(.system(size: 11)).lineLimit(2).frame(maxWidth: .infinity, alignment: .leading)
+                                small(rule.target).font(.system(size: 10))
+                            }.frame(maxWidth: .infinity, minHeight: 36).contentShape(Rectangle())
+                        }.buttonStyle(.plain).help(rule.id)
+                        Button { model.send(site ? "deleteSite" : "deleteApp", value: rule.id) } label: { Image(systemName: "trash").frame(width: 24, height: 24).contentShape(Rectangle()) }.buttonStyle(.plain).foregroundStyle(.secondary).help("Удалить \(rule.name)").accessibilityLabel("Удалить \(rule.name)")
                     }.frame(minHeight: 36).disabled(s.rulesBusy)
                     if index < rules.count - 1 { Divider() }
                 }
@@ -371,8 +378,8 @@ struct NativeMenuView: View {
             ForEach(s.profiles) { p in
                 VStack(alignment: .leading, spacing: 9) {
                     HStack {
-                        Button { model.send("profile", value: p.id); detail = "" } label: { HStack { Text(p.name).fontWeight(.semibold); if p.id == s.currentProfileId { Image(systemName: "checkmark").foregroundStyle(accent) } } }.buttonStyle(.plain)
-                        Spacer(); iconButton("arrow.clockwise", "Обновить \(p.name)", disabled: p.updating) { model.send("updateProfile", value: p.id) }
+                        Button { model.send("profile", value: p.id); detail = "" } label: { HStack { Text(p.name).fontWeight(.semibold); if p.id == s.currentProfileId { Image(systemName: "checkmark").foregroundStyle(accent) } }.frame(maxWidth: .infinity, alignment: .leading).contentShape(Rectangle()) }.buttonStyle(.plain)
+                        iconButton("arrow.clockwise", "Обновить \(p.name)", disabled: p.updating) { model.send("updateProfile", value: p.id) }
                     }
                     profileUsage(p)
                 }.padding(11).background(p.id == s.currentProfileId ? accent.opacity(0.1) : Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 10))
@@ -395,6 +402,7 @@ struct NativeMenuView: View {
                                 ZStack { Circle().fill(MenuPalette.color(choice.1)).frame(width: 25, height: 25); if s.accent == choice.1 { Image(systemName: "checkmark").font(.system(size: 12, weight: .semibold)).foregroundStyle(Color(nsColor: .controlBackgroundColor)) } }
                                 Text(choice.0).font(.system(size: 9)).foregroundStyle(.secondary)
                             }.frame(maxWidth: .infinity)
+                                .contentShape(Rectangle())
                         }.buttonStyle(.plain).accessibilityLabel(choice.0).accessibilityAddTraits(s.accent == choice.1 ? .isSelected : [])
                     }
                 }

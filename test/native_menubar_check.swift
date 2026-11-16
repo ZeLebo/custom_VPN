@@ -76,6 +76,36 @@ struct NativeMenuCheck {
                     window.layoutIfNeeded()
                     host.layoutSubtreeIfNeeded()
                     RunLoop.main.run(until: Date().addingTimeInterval(0.03))
+                    if page == "vpn" {
+                        // Local window events exercise the real Button hit regions.
+                        // No global mouse events or running VPN services are used.
+                        window.orderBack(nil)
+                        var actions = [[String: Any]]()
+                        model.transport = { _, args, completion in
+                            if let args { actions.append(args) }
+                            completion(snapshot)
+                        }
+                        let clicks: [(CGFloat, CGFloat, String, String)] = [
+                            (48, 25, "navigate", "home"), // Icon, positive control.
+                            (18, 35, "navigate", "home"), // Blank edge of an inactive tab.
+                            (40, 299, "server", "🇳🇴 Норвегия"),
+                            (CGFloat(width) / 2, 360, "server", "🇫🇮 Финляндия"), // Empty row space.
+                        ]
+                        for (x, y, action, value) in clicks {
+                            actions.removeAll()
+                            let point = host.convert(NSPoint(x: x, y: host.isFlipped ? y : 600 - y), to: nil)
+                            for type in [NSEvent.EventType.leftMouseDown, .leftMouseUp] {
+                                let event = NSEvent.mouseEvent(with: type, location: point, modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: window.windowNumber, context: nil, eventNumber: 1, clickCount: 1, pressure: type == .leftMouseDown ? 1 : 0)!
+                                NSApp.sendEvent(event)
+                            }
+                            RunLoop.main.run(until: Date().addingTimeInterval(0.03))
+                            guard actions.count == 1, actions[0]["action"] as? String == action, actions[0]["value"] as? String == value else {
+                                fputs("Native hit check failed: \(action) at (\(x), \(y)), width \(width), \(appearance); received \(actions)\n", stderr)
+                                exit(1)
+                            }
+                        }
+                        window.orderOut(nil)
+                    }
                     guard let bitmap = host.bitmapImageRepForCachingDisplay(in: host.bounds) else { fatalError("No native bitmap") }
                     host.cacheDisplay(in: host.bounds, to: bitmap)
                     guard let png = bitmap.representation(using: .png, properties: [:]) else { fatalError("No PNG data") }
@@ -85,5 +115,6 @@ struct NativeMenuCheck {
             }
         }
         print("Rendered 20 production SwiftUI snapshots at 375 and 320 pt, light and dark")
+        print("Native clicks on icons, tab padding and server row whitespace passed")
     }
 }

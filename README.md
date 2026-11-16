@@ -1,6 +1,6 @@
 # CustomVPN
 
-CustomVPN 0.6.0, клиент mihomo для macOS на основе FlClashX 0.4.2, со встроенным [zapret для macOS](https://github.com/Flowseal/zapret-mac-discord-youtube). [История изменений](CHANGELOG.md).
+CustomVPN 0.6.1, клиент mihomo для macOS на основе FlClashX 0.4.2, со встроенным [zapret для macOS](https://github.com/Flowseal/zapret-mac-discord-youtube). [История изменений](CHANGELOG.md).
 
 - **Вкладка Zapret**: запуск и остановка, доступность YouTube и Discord через zapret (напрямую, мимо VPN), стратегии, IPSet, списки. «Проверить все» прогоняет стратегии по YouTube и Discord мимо VPN и отмечает лучшую. «Обновить стратегии» берёт стратегии, fake-пакеты и списки из релизов Flowseal; скрипты и `utunws` остаются свои.
 - **Маршруты YouTube и Discord** выбираются отдельно: Zapret или VPN. Ручной выбор работает при выключенном «Автовыборе». После остановки Zapret ручные маршруты сохраняются как VPN; повторный запуск не возвращает их в Zapret. При включённом «Автовыборе» используются fallback-группы `Zapret YouTube` / `Zapret Discord` = `[DIRECT, VPN]`. Фоновая проверка выполняется каждые 300 секунд по URL сервиса и не проверяет воспроизведение видео или голос Discord. Если Zapret остановлен, сервисные правила направляют трафик в VPN. Старое явное включение автовыбора сохраняется; без сохранённого выбора по умолчанию используется ручной режим.
