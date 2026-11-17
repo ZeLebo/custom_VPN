@@ -153,3 +153,38 @@ String suggestPathPattern(List<String> paths) {
 /// A pattern with nothing but `*`, `?` and `/` catches every process.
 bool isTooBroadPattern(String pattern) =>
     pattern.replaceAll(RegExp(r'[*?/]'), '').trim().isEmpty;
+
+Future<List<String>> listInstalledApplications() async {
+  final home = Platform.environment['HOME'];
+  final paths = <String>{};
+  // Apps may be sorted into folders (/Applications/DEVELOPMENT/kitty.app);
+  // bundles themselves are not entered.
+  Future<void> scan(Directory directory, int depth) async {
+    try {
+      await for (final entry in directory.list(followLinks: false)) {
+        if (entry is! Directory) continue;
+        if (entry.path.endsWith('.app')) {
+          paths.add(entry.path);
+        } else if (depth < 3) {
+          await scan(entry, depth + 1);
+        }
+      }
+    } on FileSystemException {
+      // unreadable folder
+    }
+  }
+
+  for (final path in [
+    '/Applications',
+    if (home != null) p.join(home, 'Applications'),
+    '/System/Applications',
+  ]) {
+    final directory = Directory(path);
+    if (directory.existsSync()) await scan(directory, 0);
+  }
+  return paths.toList()
+    ..sort((a, b) => p
+        .basenameWithoutExtension(a)
+        .toLowerCase()
+        .compareTo(p.basenameWithoutExtension(b).toLowerCase()));
+}

@@ -39,6 +39,10 @@ migrate_working_dir/
 .pub/
 /build/
 /dist/
+*.app/
+*.dSYM/
+*.xcarchive/
+*.dmg
 /android/core/.cxx/
 /service/
 

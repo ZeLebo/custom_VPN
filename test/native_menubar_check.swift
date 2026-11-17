@@ -10,6 +10,8 @@ struct NativeMenuCheck {
         }
         let data = try Data(contentsOf: URL(fileURLWithPath: CommandLine.arguments[1]))
         let fixture = try JSONSerialization.jsonObject(with: data) as! [String: Any]
+        let catalogURL = URL(fileURLWithPath: CommandLine.arguments[1]).deletingLastPathComponent().appendingPathComponent("native-app-catalog-fixture.json")
+        let catalogs = try JSONSerialization.jsonObject(with: Data(contentsOf: catalogURL)) as! [String: Any]
         let state = try NativeMenuState.decode(fixture)
         precondition(state.initialized && state.currentProfile?.name == "VLESS")
         precondition(state.currentServer?.name == "🇳🇴 Норвегия")
@@ -62,20 +64,50 @@ struct NativeMenuCheck {
         for appearance in ["light", "dark"] {
             NSApp.appearance = NSAppearance(named: appearance == "dark" ? .darkAqua : .aqua)
             for width in [375, 320] {
-                for page in ["home", "vpn", "zapret", "routes", "settings"] {
+                for page in ["home", "vpn", "zapret", "routes", "settings", "advanced", "application", "appPicker", "processes", "longRoutes"] {
                     let model = NativeMenuModel()
                     var snapshot = fixture
-                    snapshot["page"] = page
+                    snapshot["page"] = ["advanced", "application"].contains(page) ? "settings" : ["appPicker", "processes", "longRoutes"].contains(page) ? "routes" : page
                     snapshot["appearance"] = appearance
+                    if page == "longRoutes" {
+                        snapshot["sites"] = (1...30).map { ["id": "example\($0).com", "name": "example\($0).com", "route": "vpn", "target": "VPN"] }
+                    }
                     try model.receive(snapshot)
+                    var actions = [[String: Any]]()
+                    model.transport = { method, args, completion in
+                        if method == "action", let args { actions.append(args) }
+                        if method == "appCatalog" { completion(catalogs[args?["kind"] as? String ?? "apps"]) }
+                        else if method == "processPattern" { completion(catalogs["pattern"]) }
+                        else { completion(snapshot) }
+                    }
                     let size = NSSize(width: width, height: 600)
-                    let host = NSHostingView(rootView: NativeMenuView(model: model, width: CGFloat(width)))
+                    let detail = ["advanced", "application"].contains(page) ? page : ["appPicker", "processes"].contains(page) ? "appPicker" : ""
+                    let root: AnyView = page == "processes"
+                        ? AnyView(NativeAppPicker(model: model, cancel: {}, manual: {}, kind: "processes").padding(12).frame(width: CGFloat(width), height: 600).background(MenuPalette.adaptive(0xf1f3f5, 0x242629)).preferredColorScheme(appearance == "dark" ? .dark : .light))
+                        : AnyView(NativeMenuView(model: model, width: CGFloat(width), detail: detail))
+                    let host = NSHostingView(rootView: root)
                     let window = NSWindow(contentRect: NSRect(origin: NSPoint(x: -10000, y: -10000), size: size), styleMask: .borderless, backing: .buffered, defer: false)
                     window.contentView = host
                     host.frame = NSRect(origin: .zero, size: size)
                     window.layoutIfNeeded()
                     host.layoutSubtreeIfNeeded()
                     RunLoop.main.run(until: Date().addingTimeInterval(0.03))
+                    if page == "longRoutes" {
+                        func scrollViews(_ view: NSView) -> [NSScrollView] {
+                            (view as? NSScrollView).map { [$0] } ?? view.subviews.flatMap(scrollViews)
+                        }
+                        let scrolls = scrollViews(host)
+                        precondition(!scrolls.isEmpty)
+                        for scroll in scrolls {
+                            scroll.scrollerStyle = .legacy
+                            precondition(!scroll.hasVerticalScroller && !scroll.hasHorizontalScroller, "The popover must not reserve a scrollbar gutter")
+                            if let document = scroll.documentView, document.bounds.height > scroll.contentView.bounds.height {
+                                scroll.contentView.scroll(to: NSPoint(x: 0, y: 80))
+                                precondition(scroll.contentView.bounds.origin.y == 80, "Long rule lists must remain scrollable")
+                                scroll.contentView.scroll(to: .zero)
+                            }
+                        }
+                    }
                     if page == "vpn" {
                         // Local window events exercise the real Button hit regions.
                         // No global mouse events or running VPN services are used.
@@ -110,11 +142,29 @@ struct NativeMenuCheck {
                     host.cacheDisplay(in: host.bounds, to: bitmap)
                     guard let png = bitmap.representation(using: .png, properties: [:]) else { fatalError("No PNG data") }
                     try png.write(to: directory.appendingPathComponent("\(page)-\(width)-\(appearance).png"))
+                    if page == "appPicker" || page == "processes" {
+                        window.orderBack(nil)
+                        let rows: [CGFloat] = page == "appPicker" ? [218] : [155, 211]
+                        for point in rows.map({ NSPoint(x: CGFloat(width) / 2, y: $0) }) + [NSPoint(x: CGFloat(width) - 45, y: 578)] {
+                            let location = host.convert(NSPoint(x: point.x, y: host.isFlipped ? point.y : 600 - point.y), to: nil)
+                            for type in [NSEvent.EventType.leftMouseDown, .leftMouseUp] {
+                                NSApp.sendEvent(NSEvent.mouseEvent(with: type, location: location, modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: window.windowNumber, context: nil, eventNumber: 1, clickCount: 1, pressure: type == .leftMouseDown ? 1 : 0)!)
+                            }
+                            RunLoop.main.run(until: Date().addingTimeInterval(0.04))
+                        }
+                        let expected = page == "appPicker" ? ["/Applications/Example.app"] : ["codex", "codex-helper"]
+                        guard actions.count == 1, actions[0]["action"] as? String == "saveApps", actions[0]["value"] as? [String] == expected else {
+                            fputs("Native picker save failed for \(page), width \(width), \(appearance): \(actions)\n", stderr); exit(1)
+                        }
+                        window.orderOut(nil)
+                    }
                     window.contentView = nil
                 }
             }
         }
-        print("Rendered 20 production SwiftUI snapshots at 375 and 320 pt, light and dark")
+        print("Rendered 40 production SwiftUI snapshots, including app/process selection, all settings and long rules")
+        print("Long rules remain scrollable without scrollbar gutters, including legacy scroller style")
         print("Native clicks on icons, tab padding and server row whitespace passed")
+        print("Native application selection, process multiselection and save actions passed")
     }
 }

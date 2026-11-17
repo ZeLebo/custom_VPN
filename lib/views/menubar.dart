@@ -5,6 +5,7 @@ import 'package:flclashx/common/common.dart';
 import 'package:flclashx/common/native_menu.dart';
 import 'package:flclashx/common/processes.dart';
 import 'package:flclashx/enum/enum.dart';
+import 'package:flclashx/l10n/l10n.dart';
 import 'package:flclashx/models/models.dart';
 import 'package:flclashx/providers/providers.dart';
 import 'package:flclashx/state.dart';
@@ -26,6 +27,11 @@ part 'menubar_native.dart';
 
 // These bindings also let widget tests render the real screens without native
 // services, the user's rule files, or network requests.
+final menuInstalledAppsProvider = Provider<Future<List<String>> Function()>(
+    (ref) => listInstalledApplications);
+final menuProcessesProvider =
+    Provider<Future<List<RunningProcess>> Function()>((ref) => listProcesses);
+
 final menuZapretProvider = Provider<Zapret>((ref) => zapret);
 final menuSitesProvider = Provider<SiteRules>((ref) => siteRules);
 final menuAppsProvider = Provider<AppRules>((ref) => appRules);
@@ -81,6 +87,8 @@ class _MenubarViewState extends ConsumerState<_MenubarBody> {
   bool _showAllRules = false;
   bool _profilesOpen = false;
   bool _nativeStateScheduled = false;
+  List<RunningProcess> _nativeProcesses = [];
+  int _nativeProcessEpoch = 0;
   String _query = '';
   String _progress = '';
   String? _probeSettings;

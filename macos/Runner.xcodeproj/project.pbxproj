@@ -21,6 +21,7 @@
 /* End PBXAggregateTarget section */
 
 /* Begin PBXBuildFile section */
+		AB2026111700000000000001 /* NativeAppPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA2026111700000000000001 /* NativeAppPicker.swift */; };
 		AB2026111600000000000003 /* NativeMenuView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA2026111600000000000003 /* NativeMenuView.swift */; };
 		AB2026111600000000000002 /* NativeMenuHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA2026111600000000000002 /* NativeMenuHost.swift */; };
 		AB2026111600000000000001 /* NativeMenuState.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA2026111600000000000001 /* NativeMenuState.swift */; };
@@ -98,6 +99,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		AA2026111700000000000001 /* NativeAppPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeAppPicker.swift; sourceTree = "<group>"; };
 		AA2026111600000000000003 /* NativeMenuView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeMenuView.swift; sourceTree = "<group>"; };
 		AA2026111600000000000002 /* NativeMenuHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeMenuHost.swift; sourceTree = "<group>"; };
 		AA2026111600000000000001 /* NativeMenuState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeMenuState.swift; sourceTree = "<group>"; };
@@ -221,6 +223,7 @@
 				2414C4342E8D575900EF1247 /* StatusBarController.swift */,
 				33CC10F02044A3C60003C045 /* AppDelegate.swift */,
 				AA2026111600000000000003 /* NativeMenuView.swift */,
+				AA2026111700000000000001 /* NativeAppPicker.swift */,
 				AA2026111600000000000002 /* NativeMenuHost.swift */,
 				AA2026111600000000000001 /* NativeMenuState.swift */,
 				33CC11122044BFA00003C045 /* MainFlutterWindow.swift */,
@@ -511,6 +514,7 @@
 				2414C4352E8D575D00EF1247 /* StatusBarController.swift in Sources */,
 				33CC10F12044A3C60003C045 /* AppDelegate.swift in Sources */,
 				AB2026111600000000000003 /* NativeMenuView.swift in Sources */,
+				AB2026111700000000000001 /* NativeAppPicker.swift in Sources */,
 				AB2026111600000000000002 /* NativeMenuHost.swift in Sources */,
 				AB2026111600000000000001 /* NativeMenuState.swift in Sources */,
 				335BBD1B22A9A15E00E9071D /* GeneratedPluginRegistrant.swift in Sources */,

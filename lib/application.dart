@@ -11,6 +11,7 @@ import 'package:flclashx/manager/manager.dart';
 import 'package:flclashx/plugins/app.dart';
 import 'package:flclashx/providers/providers.dart';
 import 'package:flclashx/state.dart';
+import 'package:flclashx/widgets/menubar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_displaymode/flutter_displaymode.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -166,7 +167,7 @@ class ApplicationState extends ConsumerState<Application> {
                     ),
                   );
 
-                  return app;
+                  return Platform.isMacOS ? NativeMenuEditorTheme(child: app) : app;
                 },
                 scrollBehavior: BaseScrollBehavior(),
                 title: appName,

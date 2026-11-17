@@ -5,6 +5,7 @@ import 'dart:ui' as ui;
 
 import 'package:flclashx/common/common.dart';
 import 'package:flclashx/common/native_menu.dart';
+import 'package:flclashx/common/processes.dart';
 import 'package:flclashx/common/theme.dart';
 import 'package:flclashx/enum/enum.dart';
 import 'package:flclashx/l10n/l10n.dart';
@@ -12,6 +13,8 @@ import 'package:flclashx/models/models.dart';
 import 'package:flclashx/providers/providers.dart';
 import 'package:flclashx/state.dart';
 import 'package:flclashx/views/menubar.dart';
+import 'package:flclashx/views/config/config.dart';
+import 'package:flclashx/widgets/menubar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
@@ -193,6 +196,13 @@ void main() {
     });
     await tester.pumpWidget(ProviderScope(
         overrides: [
+          menuInstalledAppsProvider
+              .overrideWithValue(() async => ['/Applications/Example.app']),
+          menuProcessesProvider.overrideWithValue(() async => const [
+                RunningProcess(path: '/opt/demo/codex', network: true),
+                RunningProcess(path: '/opt/demo/codex-helper', network: true),
+                RunningProcess(path: '/opt/demo/codex-extra', network: false),
+              ]),
           menuZapretProvider.overrideWithValue(daemon),
           menuSitesProvider.overrideWithValue(sites),
           menuAppsProvider.overrideWithValue(apps),
@@ -209,6 +219,7 @@ void main() {
         child: RepaintBoundary(
             key: captureKey,
             child: MaterialApp(
+              builder: (context, child) => NativeMenuEditorTheme(child: child!),
               navigatorObservers: [NativeMenuNavigationObserver()],
               debugShowCheckedModeBanner: false,
               theme: ThemeData(platform: TargetPlatform.macOS),
@@ -528,6 +539,58 @@ void main() {
     expect(state['runtimeRules'], hasLength(4));
     expect(state['routes'][0]['paths'][0]['selected'], isTrue);
     expect(state['sites'], hasLength(2));
+    expect(state['application']['autoRun'], isFalse);
+    expect(
+        (state['tools'] as List).map((e) => e['id']),
+        containsAll([
+          'config',
+          'backup',
+          'hotkeys',
+          'diagnostics',
+          'maintenance',
+          'about'
+        ]));
+    final catalog = await nativeCall('appCatalog', {'kind': 'apps'});
+    expect(catalog['items'][0]['path'], '/Applications/Example.app');
+    final processes = await nativeCall('appCatalog', {'kind': 'processes'});
+    expect(processes['items'], hasLength(3));
+    final pattern = await nativeCall('processPattern', {
+      'paths': ['/opt/demo/codex', '/opt/demo/codex-helper'],
+      'byPath': false
+    });
+    expect(pattern['pattern'], 'codex*');
+    expect(pattern['extra'], ['codex-extra']);
+    final invalidPattern = await nativeCall('processPattern', {
+      'paths': ['/opt/demo/codex'],
+      'byPath': false,
+      'pattern': '*'
+    });
+    expect(invalidPattern['error'], isNotNull);
+    await expectLater(
+        nativeCall('action', {
+          'action': 'saveApps',
+          'value': ['*']
+        }),
+        throwsA(isA<PlatformException>()));
+    state = await nativeCall(
+        'action', {'action': 'application', 'key': 'autoRun', 'value': true});
+    expect(state['application']['autoRun'], isTrue);
+    expect(container.read(appSettingProvider).autoRun, isTrue);
+    await expectLater(
+        nativeCall('action', {
+          'action': 'application',
+          'key': 'closeConnections',
+          'value': false
+        }),
+        throwsA(isA<PlatformException>()));
+    await expectLater(
+        nativeCall('action',
+            {'action': 'application', 'key': 'unknown', 'value': false}),
+        throwsA(isA<PlatformException>()));
+    final catalogFixture = File('build/native-app-catalog-fixture.json');
+    catalogFixture.parent.createSync(recursive: true);
+    catalogFixture.writeAsStringSync(jsonEncode(
+        {'apps': catalog, 'processes': processes, 'pattern': pattern}));
     await nativeCall('action', {'action': 'navigate', 'value': 'vpn'});
     await tester.pumpAndSettle();
     state = await nativeCall('state');
@@ -562,6 +625,16 @@ void main() {
     expect(state['routes'][1]['paths'][0]['result'], 'Тайм-аут');
 
     final navigator = Navigator.of(element);
+    await nativeCall('action', {'action': 'tool', 'value': 'config'});
+    await tester.pumpAndSettle();
+    expect((await nativeCall('state'))['legacyVisible'], isTrue);
+    expect(find.byType(ConfigView), findsOneWidget);
+    final editorTheme = Theme.of(tester.element(find.byType(ConfigView)));
+    expect(editorTheme.textTheme.bodyLarge?.fontSize, 13);
+    expect(editorTheme.appBarTheme.toolbarHeight, 42);
+    await capture(tester, 'legacy-config-native-theme');
+    navigator.pop();
+    await tester.pumpAndSettle();
     unawaited(navigator.push(MaterialPageRoute<void>(
         builder: (_) => const Scaffold(body: Text('Legacy editor')))));
     await tester.pumpAndSettle();
@@ -577,6 +650,21 @@ void main() {
     final fixture = File('build/native-menu-fixture.json');
     fixture.parent.createSync(recursive: true);
     fixture.writeAsStringSync(jsonEncode(state));
+    // Rules can be edited while no VPN profile is active, without a core call.
+    container.read(currentProfileIdProvider.notifier).value = null;
+    apps.put(const AppRule(app: 'codex', route: AppRoute.direct));
+    await nativeCall('action', {
+      'action': 'saveApps',
+      'value': ['codex', '/Applications/Example.app', 'codex*']
+    });
+    expect(
+        apps.rules.firstWhere((r) => r.app == 'codex').route, AppRoute.direct);
+    expect(
+        apps.rules
+            .firstWhere((r) => r.app == '/Applications/Example.app')
+            .route,
+        AppRoute.vpn);
+    expect(apps.rules.firstWhere((r) => r.app == 'codex*').route, AppRoute.vpn);
     await tester.pumpWidget(const SizedBox.shrink());
     expect(tester.takeException(), isNull);
   });

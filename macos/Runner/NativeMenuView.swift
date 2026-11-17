@@ -4,11 +4,12 @@ import AppKit
 struct NativeMenuView: View {
     @ObservedObject var model: NativeMenuModel
     var width: CGFloat = 375
-    @State private var detail = ""
+    @State var detail = ""
     @State private var query = ""
     @State private var draftName = ""
     @State private var draftRoute = "vpn"
     @State private var previousRule: String?
+    @State private var returnToApps = false
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     private let pages = [("home", "Главная", "house"), ("vpn", "VPN", "globe"), ("zapret", "Zapret", "shield.lefthalf.filled"), ("routes", "Маршруты", "point.3.connected.trianglepath.dotted"), ("settings", "Настройки", "gearshape")]
     private var accent: Color { MenuPalette.color(model.state?.accent) }
@@ -17,24 +18,34 @@ struct NativeMenuView: View {
         VStack(spacing: 0) {
             if let state = model.state {
                 navigation(state)
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 14) {
-                        switch detail {
-                        case "rules": allRules(state)
-                        case "profiles": profiles(state)
-                        case "site", "app": ruleEditor(state)
-                        default:
-                            switch state.page {
-                            case "home": home(state)
-                            case "vpn": vpn(state)
-                            case "zapret": zapret(state)
-                            case "routes": routing(state)
-                            case "settings": settings(state)
-                            default: EmptyView()
-                            }
+                if detail == "appPicker" {
+                    NativeAppPicker(model: model, cancel: { returnToApps = true; detail = "" }, manual: { returnToApps = true; edit(nil, site: false) }).padding(12)
+                } else {
+                    ScrollViewReader { scroll in
+                        ScrollView(showsIndicators: false) {
+                            VStack(alignment: .leading, spacing: 14) {
+                                switch detail {
+                                case "rules": allRules(state)
+                                case "profiles": profiles(state)
+                                case "advanced": advancedSettings(state)
+                                case "application": applicationSettings(state)
+                                case "site", "app": ruleEditor(state)
+                                default:
+                                    switch state.page {
+                                    case "home": home(state)
+                                    case "vpn": vpn(state)
+                                    case "zapret": zapret(state)
+                                    case "routes": routing(state)
+                                    case "settings": settings(state)
+                                    default: EmptyView()
+                                    }
+                                }
+                            }.frame(maxWidth: .infinity, alignment: .leading)
+                                .padding(.horizontal, 12).padding(.top, 14).padding(.bottom, 16)
                         }
-                    }.frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.horizontal, 12).padding(.top, 14).padding(.bottom, 16)
+                        .onAppear { if detail.isEmpty && returnToApps { scroll.scrollTo("applications", anchor: .top); returnToApps = false } }
+                        .onChange(of: detail) { screen in if screen.isEmpty && returnToApps { scroll.scrollTo("applications", anchor: .top); returnToApps = false } }
+                    }
                 }
             } else {
                 Spacer()
@@ -93,9 +104,9 @@ struct NativeMenuView: View {
     private func heading<Action: View>(_ title: String, @ViewBuilder action: () -> Action) -> some View {
         HStack { Text(title).font(.system(size: 12, weight: .semibold)); Spacer(minLength: 4); action() }
     }
-    private func back(_ title: String) -> some View {
+    private func back(_ title: String, to destination: String = "") -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            Button { detail = "" } label: { Label("Назад", systemImage: "chevron.left").font(.system(size: 12)).contentShape(Rectangle()) }.buttonStyle(.plain).keyboardShortcut(.escape, modifiers: [])
+            Button { detail = destination } label: { Label("Назад", systemImage: "chevron.left").font(.system(size: 12)).contentShape(Rectangle()) }.buttonStyle(.plain).keyboardShortcut(.escape, modifiers: [])
             Text(title).font(.system(size: 14, weight: .semibold))
         }
     }
@@ -289,7 +300,7 @@ struct NativeMenuView: View {
             routeControls(s)
             Button { query = ""; detail = "rules" } label: { HStack { Label("Все правила", systemImage: "list.bullet"); small("\(s.runtimeRules.count)"); Spacer(); Image(systemName: "chevron.right").font(.system(size: 10)) }.frame(maxWidth: .infinity) }.buttonStyle(.bordered)
             ruleGroup(s, site: true)
-            ruleGroup(s, site: false)
+            ruleGroup(s, site: false).id("applications")
         }
     }
     private func edit(_ rule: MenuRule?, site: Bool) {
@@ -306,7 +317,7 @@ struct NativeMenuView: View {
                     if site { iconButton("plus", "Добавить сайт", disabled: s.rulesBusy) { edit(nil, site: true) } }
                     else {
                         Menu {
-                            Button("Выбрать приложение или процесс…") { model.send("addApps") }
+                            Button("Выбрать приложение или процесс…") { detail = "appPicker" }
                             Button("Ввести имя, путь или шаблон…") { edit(nil, site: false) }
                         } label: { Image(systemName: "plus") }.menuStyle(.borderlessButton).fixedSize().help("Добавить приложение").accessibilityLabel("Добавить приложение")
                     }
@@ -419,9 +430,59 @@ struct NativeMenuView: View {
                     row("TUN") { toggle("TUN", value: s.tun, action: "tun") }
                 }
             }
-            Button { model.send("allSettings") } label: { HStack { Text("Все настройки"); Spacer(); Image(systemName: "chevron.right").font(.system(size: 10)) }.frame(maxWidth: .infinity) }.buttonStyle(.bordered)
+            Button { detail = "advanced" } label: { HStack { Text("Все настройки"); Spacer(); Image(systemName: "chevron.right").font(.system(size: 10)) }.frame(maxWidth: .infinity) }.buttonStyle(.bordered)
             if let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String { small("CustomVPN \(version)").font(.system(size: 10)) }
         }
+    }
+
+    private func advancedSettings(_ s: NativeMenuState) -> some View {
+        Group {
+            back("Все настройки")
+            group {
+                Button { detail = "application" } label: {
+                    HStack { Text("Приложение"); Spacer(); Image(systemName: "chevron.right").font(.system(size: 10)).foregroundStyle(.secondary) }
+                        .frame(maxWidth: .infinity, minHeight: 35).contentShape(Rectangle())
+                }.buttonStyle(.plain)
+                Divider()
+                ForEach(s.tools) { tool in
+                    Button { model.send("tool", value: tool.id) } label: {
+                        HStack { Text(tool.name); Spacer(); Image(systemName: "chevron.right").font(.system(size: 10)).foregroundStyle(.secondary) }
+                            .frame(maxWidth: .infinity, minHeight: 35).contentShape(Rectangle())
+                    }.buttonStyle(.plain)
+                    if tool.id != s.tools.last?.id { Divider() }
+                }
+            }
+        }
+    }
+    private func applicationSettings(_ s: NativeMenuState) -> some View {
+        Group {
+            back("Приложение", to: "advanced")
+            group {
+                row("Язык редакторов") {
+                    Picker("Язык редакторов", selection: Binding(get: { s.locale ?? "" }, set: { model.send("locale", value: $0) })) {
+                        ForEach(s.locales) { Text($0.name).tag($0.id) }
+                    }.labelsHidden().controlSize(.small).frame(maxWidth: 150)
+                }
+                Divider()
+                appOption("Автозапуск VPN", key: "autoRun", s)
+                appOption("Запускать свёрнутым", key: "silentLaunch", s)
+                appOption("Проверять обновления", key: "autoCheckUpdate", s)
+            }
+            group {
+                appOption("Свои настройки вместо профиля", key: "overrideProviderSettings", s)
+                appOption("Закрывать старые соединения", key: "closeConnections", s, disabled: s.application["overrideProviderSettings"] != true)
+                appOption("Сворачивать при закрытии", key: "minimizeOnExit", s, disabled: s.application["overrideProviderSettings"] != true)
+                appOption("Показывать журнал", key: "openLogs", s)
+                appOption("Анимация переходов", key: "isAnimateToPage", s)
+                appOption("zashboard в приложении", key: "zashboardInApp", s)
+            }
+        }
+    }
+    private func appOption(_ title: String, key: String, _ s: NativeMenuState, disabled: Bool = false) -> some View {
+        row(title) {
+            Toggle(title, isOn: Binding(get: { s.application[key] == true }, set: { model.send("application", value: $0, fields: ["key": key]) }))
+                .labelsHidden().toggleStyle(.switch).controlSize(.mini).disabled(disabled || model.busy.contains("application")).accessibilityLabel(title)
+        }.font(.system(size: 11))
     }
 }
 

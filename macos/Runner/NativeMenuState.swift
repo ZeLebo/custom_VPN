@@ -27,6 +27,9 @@ struct NativeMenuState: Decodable {
     let appearance: String
     let autoLaunch: Bool
     let startPage: String
+    let application: [String: Bool]
+    let locale: String?
+    let locales, tools: [MenuOption]
 
     var currentProfile: MenuProfile? { profiles.first { $0.id == currentProfileId } }
     var currentServer: MenuServer? { groups.flatMap(\.servers).first { $0.selected } }
@@ -34,6 +37,7 @@ struct NativeMenuState: Decodable {
         let data = try JSONSerialization.data(withJSONObject: value)
         let state = try JSONDecoder().decode(Self.self, from: data)
         guard state.protocolVersion == 1 else { throw MenuContractError.version }
+        guard Set(state.application.keys) == ["autoRun", "silentLaunch", "autoCheckUpdate", "overrideProviderSettings", "closeConnections", "minimizeOnExit", "openLogs", "isAnimateToPage", "zashboardInApp"] else { throw MenuContractError.settings }
         return state
     }
 }
@@ -68,7 +72,13 @@ struct MenuRule: Decodable, Identifiable { let id, name, route, target: String }
 struct MenuRuntimeRule: Decodable { let name, type, target: String }
 enum MenuContractError: LocalizedError {
     case version
-    var errorDescription: String? { "Несовместимая версия канала интерфейса" }
+    case settings
+    var errorDescription: String? {
+        switch self {
+        case .version: return "Несовместимая версия канала интерфейса"
+        case .settings: return "Неполный набор настроек приложения"
+        }
+    }
 }
 
 final class NativeMenuModel: ObservableObject {
@@ -78,6 +88,18 @@ final class NativeMenuModel: ObservableObject {
     var transport: ((String, [String: Any]?, @escaping (Any?) -> Void) -> Void)?
     var onPresentation: ((Bool) -> Void)?
     private var revision = -1
+
+    func request<T: Decodable>(_ method: String, args: [String: Any], as type: T.Type, completion: @escaping (Result<T, Error>) -> Void) {
+        guard let transport else { completion(.failure(NativeMenuFailure(message: "Контроллер не подключён"))); return }
+        transport(method, args) { result in
+            do {
+                if let error = result as? NativeMenuFailure { throw error }
+                guard let result else { throw NativeMenuFailure(message: "Контроллер не вернул данные") }
+                let data = try JSONSerialization.data(withJSONObject: result)
+                completion(.success(try JSONDecoder().decode(T.self, from: data)))
+            } catch { completion(.failure(error)) }
+        }
+    }
 
     func receive(_ value: Any) throws {
         let incoming = try NativeMenuState.decode(value)
@@ -121,7 +143,15 @@ final class NativeMenuModel: ObservableObject {
         }
     }
 }
-struct NativeMenuFailure { let message: String }
+struct NativeMenuFailure: LocalizedError { let message: String; var errorDescription: String? { message } }
+
+struct MenuAppEntry: Decodable, Identifiable {
+    let name, path: String
+    let network: Bool
+    var id: String { path }
+}
+struct MenuAppCatalog: Decodable { let items: [MenuAppEntry] }
+struct MenuProcessPattern: Decodable { let pattern: String; let values, matches, extra: [String]; let error: String? }
 
 enum MenuPalette {
     static let accents: [(String, UInt32, UInt32)] = [

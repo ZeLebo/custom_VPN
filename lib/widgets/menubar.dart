@@ -1,4 +1,21 @@
+import 'package:flclashx/common/native_menu.dart';
 import 'package:flutter/material.dart';
+
+class NativeMenuEditorTheme extends StatelessWidget {
+  const NativeMenuEditorTheme({super.key, required this.child});
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => ValueListenableBuilder<bool>(
+        valueListenable: nativeMenu.legacyPresentation,
+        builder: (context, visible, child) => visible
+            ? Theme(
+                data: MenubarStyle.editorTheme(Theme.of(context)),
+                child: child!)
+            : child!,
+        child: child,
+      );
+}
 
 /// Shared geometry and surfaces of the compact macOS menu-bar interface.
 abstract final class MenubarStyle {
@@ -18,6 +35,77 @@ abstract final class MenubarStyle {
     'Сиреневый': Color(0xffc4b5fa),
     'Розовый': Color(0xfff0a5bc),
   };
+
+  /// Compact style shared by existing editors presented above the native menu.
+  static ThemeData editorTheme(ThemeData base) {
+    final dark = base.brightness == Brightness.dark;
+    final surface = Color(dark ? 0xff242629 : 0xfff1f3f5);
+    final card = Color(dark ? 0xff1e1e1e : 0xffffffff);
+    final scheme = base.colorScheme.copyWith(
+        surface: surface,
+        surfaceContainer: card,
+        surfaceContainerHighest: card,
+        onSurface: Color(dark ? 0xffe2e2e2 : 0xff222222),
+        onSurfaceVariant: Color(dark ? 0xffaaaaaa : 0xff6d6d6d));
+    final original = base.textTheme.apply(
+        fontFamily: '.SF Pro Text',
+        bodyColor: scheme.onSurface,
+        displayColor: scheme.onSurface);
+    final text = original.copyWith(
+      headlineSmall: original.headlineSmall
+          ?.copyWith(fontSize: 15, fontWeight: FontWeight.w600),
+      titleLarge: original.titleLarge
+          ?.copyWith(fontSize: 14, fontWeight: FontWeight.w600),
+      titleMedium: original.titleMedium?.copyWith(fontSize: 13),
+      bodyLarge: original.bodyLarge?.copyWith(fontSize: 13),
+      bodyMedium: original.bodyMedium?.copyWith(fontSize: 12),
+      bodySmall: original.bodySmall
+          ?.copyWith(fontSize: 11, color: scheme.onSurfaceVariant),
+      labelLarge: original.labelLarge?.copyWith(fontSize: 12),
+    );
+    return base.copyWith(
+      colorScheme: scheme,
+      textTheme: text,
+      scaffoldBackgroundColor: surface,
+      canvasColor: card,
+      iconTheme: IconThemeData(size: 18, color: scheme.onSurfaceVariant),
+      visualDensity: VisualDensity.compact,
+      appBarTheme: AppBarTheme(
+          backgroundColor: surface,
+          foregroundColor: scheme.onSurface,
+          iconTheme: IconThemeData(size: 18, color: scheme.onSurface),
+          titleTextStyle: text.titleLarge,
+          toolbarHeight: 42,
+          scrolledUnderElevation: 0),
+      listTileTheme: ListTileThemeData(
+          dense: true,
+          minVerticalPadding: 7,
+          titleTextStyle: text.bodyLarge,
+          subtitleTextStyle: text.bodySmall,
+          contentPadding: const EdgeInsets.symmetric(horizontal: 12)),
+      dialogTheme: DialogThemeData(
+          backgroundColor: card,
+          titleTextStyle: text.titleLarge,
+          contentTextStyle: text.bodyMedium,
+          insetPadding: const EdgeInsets.all(12),
+          shape: const RoundedRectangleBorder(borderRadius: panelRadius)),
+      inputDecorationTheme: const InputDecorationTheme(
+          isDense: true,
+          contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+          border: OutlineInputBorder(borderRadius: controlRadius)),
+      segmentedButtonTheme: SegmentedButtonThemeData(
+          style: ButtonStyle(
+        visualDensity: VisualDensity.compact,
+        textStyle: WidgetStatePropertyAll(text.labelLarge),
+        padding:
+            const WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 8)),
+      )),
+      scrollbarTheme: const ScrollbarThemeData(
+          thumbVisibility: WidgetStatePropertyAll(false),
+          trackVisibility: WidgetStatePropertyAll(false),
+          thickness: WidgetStatePropertyAll(4)),
+    );
+  }
 
   static ThemeData theme(ThemeData base, Color accent) => base.copyWith(
         brightness: Brightness.dark,

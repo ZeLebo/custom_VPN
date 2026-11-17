@@ -28,6 +28,40 @@ import 'backup_and_recovery.dart';
 import 'developer.dart';
 import 'theme.dart';
 
+/// Existing specialized editors exposed by the native settings directory.
+Map<String, (String, Widget)> menuToolViews(WidgetRef ref) => {
+      for (final item
+          in ref.read(moreToolsSelectorStateProvider).navigationItems)
+        item.label.name: (
+          switch (item.label) {
+            PageLabel.connections => 'Подключения',
+            PageLabel.resources => 'Ресурсы',
+            PageLabel.logs => 'Журнал',
+            _ => item.label.name,
+          },
+          item.view
+        ),
+      'config': ('Сеть и DNS', const ConfigView()),
+      'backup': ('Резервная копия', const BackupAndRecovery()),
+      'hotkeys': ('Горячие клавиши', const HotKeyView()),
+      'theme': ('Дополнительное оформление', const ThemeView()),
+      'diagnostics': (
+        'Диагностика',
+        ListView(children: [
+          const _RuntimeConfigItem(),
+          const _CoreStatusItem(),
+          const _DisclaimerItem(),
+          if (ref.read(appSettingProvider).developerMode)
+            const _DeveloperItem(),
+        ])
+      ),
+      'maintenance': (
+        'Обслуживание',
+        ListView(children: const [OpenLogsFolderItem(), ResetAppItem()])
+      ),
+      'about': ('О CustomVPN', const AboutView()),
+    };
+
 class ToolsView extends ConsumerStatefulWidget {
   const ToolsView({super.key});
 

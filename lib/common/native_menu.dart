@@ -10,6 +10,7 @@ class NativeMenuChannel {
   static const channel = MethodChannel('customvpn/menubar');
   bool attached = false;
   bool legacyVisible = false;
+  final legacyPresentation = ValueNotifier(false);
   int _revision = 0;
   int nextRevision() => ++_revision;
 
@@ -22,6 +23,8 @@ class NativeMenuChannel {
 
   void detach() {
     attached = false;
+    legacyVisible = false;
+    legacyPresentation.value = false;
     channel.setMethodCallHandler(null);
   }
 
@@ -31,6 +34,7 @@ class NativeMenuChannel {
 
   void presentationChanged({required bool visible}) {
     legacyVisible = visible;
+    legacyPresentation.value = visible;
     unawaited(publish('legacyVisible', {
       'visible': visible,
       'revision': nextRevision(),

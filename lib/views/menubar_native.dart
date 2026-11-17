@@ -8,6 +8,18 @@ const _nativePages = {
   PageLabel.tools: 'settings',
 };
 
+const _nativeApplicationKeys = {
+  'autoRun',
+  'silentLaunch',
+  'autoCheckUpdate',
+  'overrideProviderSettings',
+  'closeConnections',
+  'minimizeOnExit',
+  'openLogs',
+  'isAnimateToPage',
+  'zashboardInApp',
+};
+
 extension _NativeMenuController on _MenubarViewState {
   void _scheduleNativeState() {
     if (!nativeMenu.attached || _nativeStateScheduled) return;
@@ -190,6 +202,28 @@ extension _NativeMenuController on _MenubarViewState {
       'appearance': theme.themeMode.name,
       'autoLaunch': app.autoLaunch,
       'startPage': _nativePages[app.menubarStartPage] ?? 'home',
+      'application': {
+        for (final key in _nativeApplicationKeys) key: app.toJson()[key]
+      },
+      'locale': app.locale,
+      'locales': [
+        {'id': '', 'name': 'Системный'},
+        for (final locale in AppLocalizations.delegate.supportedLocales)
+          {
+            'id': locale.toString(),
+            'name': switch (locale.toString()) {
+              'ru' => 'Русский',
+              'en' => 'English',
+              'zh_CN' => '简体中文',
+              'zh_TW' => '繁體中文',
+              _ => locale.toString(),
+            }
+          },
+      ],
+      'tools': [
+        for (final e in menuToolViews(ref).entries)
+          {'id': e.key, 'name': e.value.$1}
+      ],
     };
   }
 
@@ -211,6 +245,75 @@ extension _NativeMenuController on _MenubarViewState {
           }
           await _nativeAction(Map<String, dynamic>.from(call.arguments as Map));
           return _nativeSnapshot();
+        case 'appCatalog':
+          final args = Map<String, dynamic>.from(call.arguments as Map);
+          final kind = args['kind'] as String;
+          if (kind == 'apps') {
+            return {
+              'items': [
+                for (final path in await ref.read(menuInstalledAppsProvider)())
+                  {
+                    'path': path,
+                    'name': AppRule(app: path, route: AppRoute.vpn).name,
+                    'network': false
+                  }
+              ]
+            };
+          }
+          if (kind != 'processes') {
+            throw const FormatException('Неизвестный список');
+          }
+          final epoch = ++_nativeProcessEpoch;
+          final processes = await ref.read(menuProcessesProvider)();
+          if (epoch == _nativeProcessEpoch) _nativeProcesses = processes;
+          return {
+            'items': [
+              for (final process in processes)
+                {
+                  'path': process.path,
+                  'name': process.name,
+                  'network': process.network
+                }
+            ]
+          };
+        case 'processPattern':
+          final args = Map<String, dynamic>.from(call.arguments as Map);
+          final paths = Set<String>.from(args['paths'] as List);
+          final selected =
+              _nativeProcesses.where((p) => paths.contains(p.path)).toList();
+          if (selected.isEmpty || selected.length != paths.length) {
+            throw const FormatException('Выберите процессы из списка');
+          }
+          final byPath = args['byPath'] as bool;
+          final values =
+              selected.map((p) => byPath ? p.path : p.name).toSet().toList();
+          final pattern = (args['pattern'] as String?) ??
+              (byPath
+                  ? suggestPathPattern(values)
+                  : suggestNamePattern(values));
+          final error = pattern.trim().isEmpty
+              ? 'Введите шаблон'
+              : pattern.contains(',')
+                  ? 'Шаблон не должен содержать запятую'
+                  : isTooBroadPattern(pattern)
+                      ? 'Уточните шаблон: он охватывает все процессы'
+                      : null;
+          final matches = error == null
+              ? _nativeProcesses
+                  .where(
+                      (p) => wildcardMatch(pattern, byPath ? p.path : p.name))
+                  .toList()
+              : <RunningProcess>[];
+          return {
+            'pattern': pattern,
+            'values': values,
+            'error': error,
+            'matches': [for (final p in matches) p.name],
+            'extra': [
+              for (final p in matches)
+                if (!paths.contains(p.path)) p.name
+            ]
+          };
         default:
           throw MissingPluginException(
               'Unknown native menu method: ${call.method}');
@@ -330,19 +433,24 @@ extension _NativeMenuController on _MenubarViewState {
       case 'deleteSite':
         await _changeRouting(() => _sites.remove(value as String));
       case 'saveApp':
-        final name = (args['name'] as String).trim();
-        if (name.isEmpty ||
-            name.contains(',') ||
-            ((name.contains('*') || name.contains('?')) &&
-                isTooBroadPattern(name))) {
-          throw const FormatException('Уточните имя, путь или шаблон процесса');
-        }
-        final expanded = name.startsWith('~/')
-            ? '${Platform.environment['HOME']}/${name.substring(2)}'
-            : name;
-        final rule = AppRule(
-            app: expanded, route: AppRoute.values.byName(value as String));
+        final rule = _nativeAppRule(
+            args['name'] as String, AppRoute.values.byName(value as String));
         await _changeRouting(() => _apps.put(rule));
+      case 'saveApps':
+        final names = List<String>.from(value as List);
+        if (names.isEmpty) {
+          throw const FormatException('Выберите приложение или процесс');
+        }
+        final rules = [
+          for (final name in names)
+            _nativeAppRule(
+                name,
+                _apps.rules.where((r) => r.app == name).firstOrNull?.route ??
+                    AppRoute.vpn)
+        ];
+        await _changeRouting(() {
+          rules.forEach(_apps.put);
+        });
       case 'deleteApp':
         await _changeRouting(() => _apps.remove(value as String));
       case 'onlyListed':
@@ -373,13 +481,51 @@ extension _NativeMenuController on _MenubarViewState {
         _addProfile();
       case 'manageProfiles':
         _open('Профили', const ProfilesView(standalone: true));
-      case 'allSettings':
-        _open('Все настройки', const ToolsView());
-      case 'addApps':
-        unawaited(_addApp());
+      case 'application':
+        final key = args['key'] as String;
+        if (!_nativeApplicationKeys.contains(key)) {
+          throw const FormatException('Неизвестная настройка');
+        }
+        if ((key == 'closeConnections' || key == 'minimizeOnExit') &&
+            !ref.read(appSettingProvider).overrideProviderSettings) {
+          throw StateError('Настройка управляется профилем');
+        }
+        final enabled = value as bool;
+        ref.read(appSettingProvider.notifier).updateState(
+            (s) => AppSettingProps.fromJson({...s.toJson(), key: enabled}));
+      case 'locale':
+        final locale = value as String;
+        if (locale.isNotEmpty &&
+            !AppLocalizations.delegate.supportedLocales
+                .any((l) => l.toString() == locale)) {
+          throw const FormatException('Неизвестный язык');
+        }
+        ref.read(appSettingProvider.notifier).updateState(
+            (s) => s.copyWith(locale: locale.isEmpty ? null : locale));
+      case 'tool':
+        final tool = menuToolViews(ref)[value];
+        if (tool == null) throw const FormatException('Неизвестный раздел');
+        _open(tool.$1, tool.$2);
       default:
         throw ArgumentError('Unknown native menu action: $action');
     }
     _scheduleNativeState();
+  }
+
+  AppRule _nativeAppRule(String input, AppRoute route) {
+    final name = input.trim();
+    if (name.isEmpty ||
+        name.contains(',') ||
+        ((name.contains('*') || name.contains('?')) &&
+            isTooBroadPattern(name))) {
+      throw const FormatException('Уточните имя, путь или шаблон процесса');
+    }
+    final home = Platform.environment['HOME'];
+    if (name.startsWith('~/') && home == null) {
+      throw StateError('Не удалось определить домашнюю папку');
+    }
+    return AppRule(
+        app: name.startsWith('~/') ? '$home/${name.substring(2)}' : name,
+        route: route);
   }
 }
